@@ -10,8 +10,10 @@ import type {
 export const ADMIN_NAV_IDS = ['essay', 'bits', 'memo', 'archive', 'about'] as const satisfies readonly SidebarNavId[];
 export const ADMIN_PAGE_IDS = ['essay', 'archive', 'bits', 'memo', 'about'] as const satisfies readonly PageId[];
 
-export const ADMIN_HERO_PRESETS = ['default', 'minimal', 'none'] as const satisfies readonly HeroPresetId[];
+export const ADMIN_HERO_PRESETS = ['default', 'none'] as const satisfies readonly HeroPresetId[];
 export const ADMIN_HERO_PRESET_SET: ReadonlySet<HeroPresetId> = new Set(ADMIN_HERO_PRESETS);
+export const ADMIN_HERO_IMAGE_ALT_DEFAULT = 'Whono theme preview';
+export const ADMIN_HERO_IMAGE_ALT_MAX_LENGTH = 120;
 
 export const ADMIN_HOME_INTRO_LINK_KEYS = [
   'archive',
@@ -72,6 +74,7 @@ export const ADMIN_SOCIAL_CUSTOM_LIMIT = 8;
 
 export const ADMIN_LOCALE_RE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 export const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ADMIN_HERO_IMAGE_LOCAL_EXT_RE = /\.(?:avif|gif|jpe?g|png|webp)$/i;
 
 export const getAdminFooterStartYearMax = (): number => new Date().getFullYear();
 
@@ -106,4 +109,51 @@ export const isAdminAllowedHttpsUrl = (value: string, allowedHosts?: readonly st
   } catch {
     return false;
   }
+};
+
+const hasInvalidHeroImagePathSegment = (value: string): boolean =>
+  /(^|\/)\.\.(?:\/|$)/.test(value) || value.includes('?') || value.includes('#');
+
+const toCanonicalHeroAssetPath = (value: string): string | null => {
+  if (value.startsWith('@/assets/')) {
+    return `src/assets/${value.slice('@/assets/'.length)}`;
+  }
+
+  if (value.startsWith('assets/')) {
+    return `src/assets/${value.slice('assets/'.length)}`;
+  }
+
+  return value.startsWith('src/assets/') ? value : null;
+};
+
+export const normalizeAdminHeroImageSrc = (value: unknown): string | null | undefined => {
+  if (value === null) return null;
+  if (typeof value !== 'string') return undefined;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (isAdminAllowedHttpsUrl(trimmed)) return new URL(trimmed).toString();
+
+  const normalized = trimmed.replace(/\\/g, '/').replace(/^\.\/+/, '');
+  if (!normalized || normalized.startsWith('//') || hasInvalidHeroImagePathSegment(normalized)) {
+    return undefined;
+  }
+
+  if (normalized.startsWith('/')) {
+    return normalized !== '/' && ADMIN_HERO_IMAGE_LOCAL_EXT_RE.test(normalized) ? normalized : undefined;
+  }
+
+  if (normalized.startsWith('public/')) {
+    const publicPath = `/${normalized.slice('public/'.length)}`;
+    return publicPath !== '/' && ADMIN_HERO_IMAGE_LOCAL_EXT_RE.test(publicPath) ? publicPath : undefined;
+  }
+
+  const assetPath = toCanonicalHeroAssetPath(normalized);
+  return assetPath && ADMIN_HERO_IMAGE_LOCAL_EXT_RE.test(assetPath) ? assetPath : undefined;
+};
+
+export const getAdminHeroImageLocalFilePath = (value: string): string | null => {
+  if (value.startsWith('src/assets/')) return value;
+  if (value.startsWith('/')) return `public${value}`;
+  return null;
 };

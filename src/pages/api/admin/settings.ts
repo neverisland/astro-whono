@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { access, mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { APIRoute } from 'astro';
@@ -17,6 +18,8 @@ import {
   ADMIN_FOOTER_COPYRIGHT_MAX_LENGTH,
   ADMIN_FOOTER_START_YEAR_MIN,
   ADMIN_GITHUB_HOSTS,
+  ADMIN_HERO_IMAGE_ALT_DEFAULT,
+  ADMIN_HERO_IMAGE_ALT_MAX_LENGTH,
   ADMIN_HERO_PRESET_SET,
   ADMIN_HOME_INTRO_LINK_KEYS,
   ADMIN_HOME_INTRO_LINK_LIMIT,
@@ -29,10 +32,12 @@ import {
   ADMIN_SOCIAL_CUSTOM_LIMIT,
   ADMIN_SOCIAL_PRESET_IDS,
   ADMIN_X_HOSTS,
+  getAdminHeroImageLocalFilePath,
   getAdminFooterStartYearMax,
   isAdminHomeIntroLinkKey,
   isAdminNavId,
-  isAdminSocialIconKey
+  isAdminSocialIconKey,
+  normalizeAdminHeroImageSrc
 } from '../../../lib/admin-console/shared';
 
 type WritableGroup = 'site' | 'shell' | 'home' | 'page' | 'ui';
@@ -76,7 +81,16 @@ const FOOTER_START_YEAR_MAX = getAdminFooterStartYearMax();
 
 const SITE_KEYS = ['title', 'description', 'defaultLocale', 'footer', 'socialLinks'] as const;
 const SHELL_KEYS = ['brandTitle', 'quote', 'nav'] as const;
-const HOME_KEYS = ['introLead', 'introMore', 'introMoreLinks', 'showIntroLead', 'showIntroMore', 'heroPresetId'] as const;
+const HOME_KEYS = [
+  'introLead',
+  'introMore',
+  'introMoreLinks',
+  'showIntroLead',
+  'showIntroMore',
+  'heroPresetId',
+  'heroImageSrc',
+  'heroImageAlt'
+] as const;
 const PAGE_KEYS = ['essay', 'archive', 'bits', 'memo', 'about'] as const;
 const UI_KEYS = ['codeBlock', 'readingMode'] as const;
 const FOOTER_KEYS = ['startYear', 'showCurrentYear', 'copyright'] as const;
@@ -231,6 +245,9 @@ const validateRelativeAvatarPath = (scope: string, value: string, errors: string
     errors.push(`${scope} 当前仅允许相对路径，不允许 URL`);
   }
 };
+
+const hasProjectFile = (relativePath: string): boolean =>
+  existsSync(join(process.cwd(), ...relativePath.split('/')));
 
 const parseSocialCustomItem = (
   value: unknown,
@@ -743,9 +760,38 @@ const parsePatch = (
       if (Object.prototype.hasOwnProperty.call(rawHome, 'heroPresetId')) {
         const value = toTrimmedString(rawHome.heroPresetId);
         if (!value || !ADMIN_HERO_PRESET_SET.has(value as HeroPresetId)) {
-          errors.push('home.heroPresetId 只允许 default/minimal/none');
+          errors.push('home.heroPresetId 只允许 default/none');
         } else {
           nextHome.heroPresetId = value as HeroPresetId;
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(rawHome, 'heroImageSrc')) {
+        const value = normalizeAdminHeroImageSrc(rawHome.heroImageSrc);
+        if (value === undefined) {
+          errors.push('home.heroImageSrc 只允许 src/assets/**、public/**（或 / 开头路径）以及 https:// 图片地址');
+        } else if (value === null) {
+          nextHome.heroImageSrc = null;
+        } else {
+          const localFilePath = getAdminHeroImageLocalFilePath(value);
+          if (localFilePath && !hasProjectFile(localFilePath)) {
+            errors.push(`home.heroImageSrc 指向的本地文件不存在：${localFilePath}`);
+          } else {
+            nextHome.heroImageSrc = value;
+          }
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(rawHome, 'heroImageAlt')) {
+        const value = toTrimmedString(rawHome.heroImageAlt);
+        if (value === undefined) {
+          errors.push('home.heroImageAlt 必须是字符串');
+        } else if (value.includes('\n') || value.includes('\r')) {
+          errors.push('home.heroImageAlt 只允许单行文本');
+        } else if (value.length > ADMIN_HERO_IMAGE_ALT_MAX_LENGTH) {
+          errors.push(`home.heroImageAlt 不能超过 ${ADMIN_HERO_IMAGE_ALT_MAX_LENGTH} 个字符`);
+        } else {
+          nextHome.heroImageAlt = value || ADMIN_HERO_IMAGE_ALT_DEFAULT;
         }
       }
 

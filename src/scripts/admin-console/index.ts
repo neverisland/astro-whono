@@ -10,6 +10,8 @@ import {
   ADMIN_FOOTER_COPYRIGHT_MAX_LENGTH,
   ADMIN_FOOTER_START_YEAR_MIN,
   ADMIN_GITHUB_HOSTS,
+  ADMIN_HERO_IMAGE_ALT_DEFAULT,
+  ADMIN_HERO_IMAGE_ALT_MAX_LENGTH,
   ADMIN_HERO_PRESET_SET,
   ADMIN_HOME_INTRO_LINK_DEFAULT,
   ADMIN_HOME_INTRO_LINK_LIMIT,
@@ -29,7 +31,8 @@ import {
   isAdminHeroPresetId,
   isAdminNavId,
   isAdminSocialIconKey,
-  isAdminSocialPresetId
+  isAdminSocialPresetId,
+  normalizeAdminHeroImageSrc
 } from '@/lib/admin-console/shared';
 
 type EditableSettings = ThemeSettingsEditablePayload['settings'];
@@ -110,6 +113,8 @@ if (!root) {
     inputPageBitsAuthorName: byId<HTMLInputElement>('page-bits-author-name'),
     inputPageBitsAuthorAvatar: byId<HTMLInputElement>('page-bits-author-avatar'),
     inputHeroPreset: byId<HTMLSelectElement>('home-hero-preset'),
+    inputHeroImageSrc: byId<HTMLInputElement>('home-hero-image-src'),
+    inputHeroImageAlt: byId<HTMLInputElement>('home-hero-image-alt'),
     inputCodeLineNumbers: byId<HTMLInputElement>('ui-code-line-numbers'),
     inputReadingEntry: byId<HTMLInputElement>('ui-reading-entry')
   });
@@ -167,6 +172,8 @@ if (!root) {
       inputPageBitsAuthorName,
       inputPageBitsAuthorAvatar,
       inputHeroPreset,
+      inputHeroImageSrc,
+      inputHeroImageAlt,
       inputCodeLineNumbers,
       inputReadingEntry
     } = controls;
@@ -215,6 +222,15 @@ if (!root) {
       return Number.isFinite(next) ? next : null;
     };
     const normalizeTrimmed = (value: unknown): string => String(value ?? '').trim();
+    const normalizeHeroImageSrc = (value: unknown): string | null => {
+      const rawValue = normalizeTrimmed(value);
+      if (!rawValue) return null;
+      return normalizeAdminHeroImageSrc(rawValue) ?? rawValue;
+    };
+    const normalizeHeroImageAlt = (value: unknown): string => {
+      const rawValue = normalizeTrimmed(value);
+      return rawValue || ADMIN_HERO_IMAGE_ALT_DEFAULT;
+    };
     const normalizeCustomSocialLabel = (iconKey: SiteSocialIconKey): string =>
       customSocialIconLabels.get(iconKey) || customSocialIconLabels.get(defaultCustomSocialIconKey) || '链接';
     const defaultHomeIntroLinks = [...ADMIN_HOME_INTRO_LINK_DEFAULT] as HomeIntroLinkKey[];
@@ -295,6 +311,11 @@ if (!root) {
       );
 
       return secondary !== primary ? [primary, secondary] : [primary];
+    };
+    const syncHeroControls = (): void => {
+      const isHidden = inputHeroPreset.value.trim() === 'none';
+      inputHeroImageSrc.disabled = isHidden;
+      inputHeroImageAlt.disabled = isHidden;
     };
 
     const getPresetOrderInputs = (): Record<SiteSocialPresetId, HTMLInputElement> => ({
@@ -676,6 +697,8 @@ if (!root) {
         });
 
       const rawHeroPresetId = normalizeTrimmed(home.heroPresetId);
+      const heroImageSrc = normalizeHeroImageSrc(home.heroImageSrc);
+      const heroImageAlt = normalizeHeroImageAlt(home.heroImageAlt);
       const rawPresetOrder = isRecord(socialLinks.presetOrder) ? socialLinks.presetOrder : {};
       const showIntroLead =
         typeof home.showIntroLead === 'boolean' ? home.showIntroLead : true;
@@ -716,7 +739,9 @@ if (!root) {
           introMoreLinks,
           showIntroLead,
           showIntroMore,
-          heroPresetId: isAdminHeroPresetId(rawHeroPresetId) ? rawHeroPresetId : 'default'
+          heroPresetId: isAdminHeroPresetId(rawHeroPresetId) ? rawHeroPresetId : 'default',
+          heroImageSrc,
+          heroImageAlt
         },
         page: {
           essay: {
@@ -818,7 +843,9 @@ if (!root) {
           introMoreLinks: collectHomeIntroLinks(),
           showIntroLead: Boolean(inputHomeShowIntroLead.checked),
           showIntroMore: Boolean(inputHomeShowIntroMore.checked),
-          heroPresetId: isAdminHeroPresetId(inputHeroPreset.value) ? inputHeroPreset.value : 'default'
+          heroPresetId: isAdminHeroPresetId(inputHeroPreset.value) ? inputHeroPreset.value : 'default',
+          heroImageSrc: normalizeHeroImageSrc(inputHeroImageSrc.value),
+          heroImageAlt: normalizeHeroImageAlt(inputHeroImageAlt.value)
         },
         page: {
           essay: {
@@ -909,6 +936,9 @@ if (!root) {
       inputPageBitsAuthorName.value = settings.page.bits?.defaultAuthor?.name || '';
       inputPageBitsAuthorAvatar.value = settings.page.bits?.defaultAuthor?.avatar || '';
       inputHeroPreset.value = settings.home.heroPresetId || 'default';
+      inputHeroImageSrc.value = settings.home.heroImageSrc || '';
+      inputHeroImageAlt.value = settings.home.heroImageAlt || ADMIN_HERO_IMAGE_ALT_DEFAULT;
+      syncHeroControls();
       inputCodeLineNumbers.checked = Boolean(settings.ui?.codeBlock?.showLineNumbers);
       inputReadingEntry.checked = Boolean(settings.ui?.readingMode?.showEntry);
       refreshFooterPreview();
@@ -1085,6 +1115,28 @@ if (!root) {
         });
       }
 
+      if (!ADMIN_HERO_PRESET_SET.has(settings.home.heroPresetId)) {
+        errors.push('Hero 展示模式只允许 default/none');
+      }
+
+      if (
+        settings.home.heroImageSrc !== null &&
+        normalizeAdminHeroImageSrc(settings.home.heroImageSrc) === undefined
+      ) {
+        errors.push('Hero 图片地址只允许 src/assets/**、public/**（或 / 开头路径）以及 https:// 图片地址');
+      }
+
+      if (!settings.home.heroImageAlt) {
+        errors.push('Hero 图片说明不能为空');
+      } else if (
+        settings.home.heroImageAlt.includes('\n') ||
+        settings.home.heroImageAlt.includes('\r')
+      ) {
+        errors.push('Hero 图片说明只允许单行文本');
+      } else if (settings.home.heroImageAlt.length > ADMIN_HERO_IMAGE_ALT_MAX_LENGTH) {
+        errors.push(`Hero 图片说明不能超过 ${ADMIN_HERO_IMAGE_ALT_MAX_LENGTH} 个字符`);
+      }
+
       const pageTitleMap: Array<[string | null, string]> = [
         [settings.page.essay?.title, '/essay/ 页面主标题'],
         [settings.page.archive?.title, '/archive/ 页面主标题'],
@@ -1139,10 +1191,6 @@ if (!root) {
         if (/^[A-Za-z]+:\/\//.test(settings.page.bits.defaultAuthor.avatar)) {
           errors.push('Bits 默认头像当前仅允许相对路径，不允许 URL');
         }
-      }
-
-      if (!ADMIN_HERO_PRESET_SET.has(settings.home.heroPresetId)) {
-        errors.push('Hero 预置只允许 default/minimal/none');
       }
 
       const nav = Array.isArray(settings.shell.nav) ? settings.shell.nav : [];
@@ -1261,6 +1309,10 @@ if (!root) {
     });
     inputHomeIntroMoreLinkSecondary.addEventListener('change', () => {
       syncHomeIntroLinkControls();
+      refreshDirty();
+    });
+    inputHeroPreset.addEventListener('change', () => {
+      syncHeroControls();
       refreshDirty();
     });
 

@@ -2,16 +2,21 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { site as legacySite } from '../../site.config.mjs';
 import {
+  ADMIN_HERO_IMAGE_ALT_DEFAULT,
+  ADMIN_HERO_IMAGE_ALT_MAX_LENGTH,
   ADMIN_HOME_INTRO_LINK_DEFAULT,
   ADMIN_HOME_INTRO_LINK_KEY_SET,
-  ADMIN_HOME_INTRO_LINK_LIMIT
+  ADMIN_HOME_INTRO_LINK_LIMIT,
+  ADMIN_HERO_PRESET_SET,
+  getAdminHeroImageLocalFilePath,
+  normalizeAdminHeroImageSrc
 } from './admin-console/shared';
 
 export type SettingSource = 'new' | 'legacy' | 'default';
 
 export type SidebarNavId = 'essay' | 'bits' | 'memo' | 'archive' | 'about';
 export type PageId = 'essay' | 'archive' | 'bits' | 'memo' | 'about';
-export type HeroPresetId = 'default' | 'minimal' | 'none';
+export type HeroPresetId = 'default' | 'none';
 export type HomeIntroLinkKey = 'archive' | 'essay' | 'bits' | 'memo' | 'about';
 export type SiteSocialPresetId = 'github' | 'x' | 'email';
 export type SiteSocialKind = 'preset' | 'custom';
@@ -99,6 +104,8 @@ export interface HomeSettings {
   showIntroLead: boolean;
   showIntroMore: boolean;
   heroPresetId: HeroPresetId;
+  heroImageSrc: string | null;
+  heroImageAlt: string;
 }
 
 export interface PageHeadingSettings {
@@ -170,6 +177,8 @@ export interface ThemeSettingsSources {
     showIntroLead: SettingSource;
     showIntroMore: SettingSource;
     heroPresetId: SettingSource;
+    heroImageSrc: SettingSource;
+    heroImageAlt: SettingSource;
   };
   page: {
     essayTitle: SettingSource;
@@ -307,7 +316,9 @@ const DEFAULT_HOME: HomeSettings = {
   introMoreLinks: cloneHomeIntroLinks(ADMIN_HOME_INTRO_LINK_DEFAULT),
   showIntroLead: true,
   showIntroMore: true,
-  heroPresetId: 'default'
+  heroPresetId: 'default',
+  heroImageSrc: null,
+  heroImageAlt: ADMIN_HERO_IMAGE_ALT_DEFAULT
 };
 
 const DEFAULT_PAGE: PageSettings = {
@@ -337,7 +348,6 @@ const DEFAULT_PAGE: PageSettings = {
   }
 };
 
-const HERO_PRESETS: ReadonlySet<HeroPresetId> = new Set(['default', 'minimal', 'none']);
 const NAV_IDS: ReadonlySet<SidebarNavId> = new Set(['essay', 'bits', 'memo', 'archive', 'about']);
 const SOCIAL_ICON_KEYS: ReadonlySet<SiteSocialIconKey> = new Set([
   'github',
@@ -388,6 +398,14 @@ const asString = (value: unknown): string | undefined =>
 const asNonEmptyString = (value: unknown): string | undefined => {
   const next = asString(value);
   return next ? next : undefined;
+};
+
+const asSingleLineString = (value: unknown, maxLength?: number): string | undefined => {
+  const next = asNonEmptyString(value);
+  if (!next) return undefined;
+  if (next.includes('\n') || next.includes('\r')) return undefined;
+  if (typeof maxLength === 'number' && next.length > maxLength) return undefined;
+  return next;
 };
 
 const asInteger = (value: unknown): number | undefined => {
@@ -463,7 +481,17 @@ const asNavId = (value: unknown): SidebarNavId | undefined => {
 
 const asHeroPresetId = (value: unknown): HeroPresetId | undefined => {
   if (typeof value !== 'string') return undefined;
-  return HERO_PRESETS.has(value as HeroPresetId) ? (value as HeroPresetId) : undefined;
+  return ADMIN_HERO_PRESET_SET.has(value as HeroPresetId) ? (value as HeroPresetId) : undefined;
+};
+
+const asHeroImageSrc = (value: unknown): string | null | undefined => {
+  const normalized = normalizeAdminHeroImageSrc(value);
+  if (normalized === undefined || normalized === null) return normalized;
+
+  const localFilePath = getAdminHeroImageLocalFilePath(normalized);
+  if (!localFilePath) return normalized;
+
+  return existsSync(join(process.cwd(), ...localFilePath.split('/'))) ? normalized : undefined;
 };
 
 const asHomeIntroLinkKey = (value: unknown): HomeIntroLinkKey | undefined => {
@@ -752,6 +780,16 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
     DEFAULT_HOME.heroPresetId,
     DEFAULT_HOME.heroPresetId
   );
+  const heroImageSrc = resolveValue<string | null>(
+    asHeroImageSrc(homeJson?.heroImageSrc),
+    undefined,
+    DEFAULT_HOME.heroImageSrc
+  );
+  const heroImageAlt = resolveValue(
+    asSingleLineString(homeJson?.heroImageAlt, ADMIN_HERO_IMAGE_ALT_MAX_LENGTH),
+    undefined,
+    DEFAULT_HOME.heroImageAlt
+  );
 
   const essayTitle = resolveValue(
     asNullableString(pageEssayJson?.title),
@@ -875,7 +913,9 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
         introMoreLinks: cloneHomeIntroLinks(introMoreLinks.value),
         showIntroLead: showIntroLead.value,
         showIntroMore: showIntroMore.value,
-        heroPresetId: heroPresetId.value
+        heroPresetId: heroPresetId.value,
+        heroImageSrc: heroImageSrc.value,
+        heroImageAlt: heroImageAlt.value
       },
       page: {
         essay: {
@@ -939,7 +979,9 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
         introMoreLinks: introMoreLinks.source,
         showIntroLead: showIntroLead.source,
         showIntroMore: showIntroMore.source,
-        heroPresetId: heroPresetId.source
+        heroPresetId: heroPresetId.source,
+        heroImageSrc: heroImageSrc.source,
+        heroImageAlt: heroImageAlt.source
       },
       page: {
         essayTitle: essayTitle.source,

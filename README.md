@@ -128,13 +128,14 @@ npm run build && npm run preview
 - 运行策略：`astro.config.mjs` 在开发态使用 `server` output，让 `/api/admin/settings/` 可以处理 `POST`；构建阶段回到 `static`，继续输出纯静态产物
 - 落盘文件：`src/data/settings/site.json`、`src/data/settings/shell.json`、`src/data/settings/home.json`、`src/data/settings/page.json`、`src/data/settings/ui.json`
 - 写入策略：使用 staged temp + commit/rollback，避免多文件保存出现半成功状态
-- 当前已开放字段：基础站点信息、`site.footer.startYear`、`site.footer.showCurrentYear`、`site.footer.copyright`、`site.socialLinks.github|x|email|presetOrder|custom[]`、`shell.brandTitle`、`shell.quote`、`shell.nav`、`home.introLead`、`home.introMore`、`home.showIntroLead`、`home.showIntroMore`、`home.heroPresetId`、`page.{essay|archive|bits|memo|about}.{title|subtitle}`、`page.bits.defaultAuthor`、`ui.codeBlock.showLineNumbers`、`ui.readingMode.showEntry`
+- 当前已开放字段：基础站点信息、`site.footer.startYear`、`site.footer.showCurrentYear`、`site.footer.copyright`、`site.socialLinks.github|x|email|presetOrder|custom[]`、`shell.brandTitle`、`shell.quote`、`shell.nav`、`home.introLead`、`home.introMore`、`home.showIntroLead`、`home.showIntroMore`、`home.heroPresetId`、`home.heroImageSrc`、`home.heroImageAlt`、`page.{essay|archive|bits|memo|about}.{title|subtitle}`、`page.bits.defaultAuthor`、`ui.codeBlock.showLineNumbers`、`ui.readingMode.showEntry`
 - Phase 1.5：已完成 M1 `site.footer` / `site.socialLinks` 扩展、M2 `home.introLead` / `home.introMore` / `home.showIntroLead` / `home.showIntroMore`、M3 固定页标题字段与 `page.bits.defaultAuthor`、M4 about 页统一社交渲染、M5 `/admin` 自定义社交链接编辑 UI
 - `site.socialLinks` 当前支持固定字段 `github` / `x` / `email`、固定平台排序 `presetOrder.{github|x|email}`，以及 `custom[]`；`custom[]` 每项固定为 `id / label / href / iconKey / visible / order`
 - `custom[]` 最多 `8` 条，`href` 仅允许 `https://`，`iconKey` 仅允许 `github / x / email / weibo / facebook / instagram / telegram / mastodon / bilibili / youtube / linkedin / website / link / globe`
 - 固定平台与扩展链接在 `/admin` 中共用同一张排序表；固定平台不可删除，但可编辑链接值和位置排序，留空即隐藏
 - 运行时会在 `src/lib/theme-settings.ts` 统一生成只读的 `resolvedSocialItems`，供 `about` 等前台页面消费；固定平台会先按 `presetOrder` 参与排序，再与 `custom[]` 一起合并；该字段不会回写到保存请求
 - 首页导语主文案与补充文案都可分别控制是否展示；补充文案支持在 `/admin/` 中选择 `1-2` 个首页内部入口（当前支持 `archive / essay / bits / memo / about`），前台仍按固定句式渲染为“补充文案 + 链接 + 可选 `或` + 链接”
+- 首页 Hero 支持在 `/admin/` 中切换 `default / none` 展示模式，并可配置图片地址与 `alt` 文案；图片地址支持 `src/assets/**`、`public/**`（或 `/` 开头站内路径）以及 `https://` 图床链接，留空时回退内置默认图
 - 固定页支持在 `/admin/` 中分别配置页面主标题与副标题；当前 `essay` / `archive` 的动态计数、分页与 RSS 标题仍由前台固定输出，`memo` 未填写时仍回退到 frontmatter
 - 白名单约束：仅允许受控字段；`site.socialLinks.custom[]` 不开放原始 SVG / HTML，自定义社交项只允许受控图标键与受控字段；Sidebar 仍只允许编辑既有导航项
 

@@ -15,6 +15,7 @@ The format is based on Keep a Changelog, and this project aims to follow Semanti
 - 新增本地配置保存机制；首次保存时生成本地配置文件，未生成前仍兼容旧配置读取
 
 ### Changed
+- `/admin/` 的首页 Hero 配置改为真实生效：移除无实际语义的 `minimal` 选项，新增 `heroImageSrc` / `heroImageAlt`，支持 `src/assets/**`、`public/**` 与 `https://` 图片来源，并由首页直接消费
 - 页脚、首页导语、侧栏和关于页社交信息改为读取统一配置，与 `/admin/` 设置保持一致
 - `/admin/` 的社交链接表支持固定平台参与统一排序；GitHub / X / Email 保留预设语义，但可编辑位置排序
 - `/admin/` 客户端控制器从页面内联脚本迁到 `src/scripts/admin-console/index.ts`，并抽出 `src/lib/admin-console/shared.ts` 统一收口共享规则与默认值

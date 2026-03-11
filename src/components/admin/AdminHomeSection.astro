@@ -1,5 +1,7 @@
 ---
 import {
+  ADMIN_HERO_IMAGE_ALT_DEFAULT,
+  ADMIN_HERO_IMAGE_ALT_MAX_LENGTH,
   ADMIN_HOME_INTRO_LINK_DEFAULT,
   ADMIN_HOME_INTRO_LINK_OPTIONS
 } from '../../lib/admin-console/shared';
@@ -85,15 +87,39 @@ const { homeIntroMaxLength } = Astro.props;
         补充导语预览：<code id="home-intro-more-preview" class="admin-help__preview-value">更多文章请访问 归档 或 随笔。</code>
       </p>
     </div>
-    <label class="admin-field">
+    <div class="admin-field admin-field--full">
+      <div class="admin-label">
+        <span class="admin-label__main">Hero 展示</span>
+        <span class="admin-label__hint">（支持 src/assets/**、public/** 或 https:// 图床链接）</span>
+      </div>
+      <div class="admin-inline-builder">
+        <select id="home-hero-preset" class="admin-inline-builder__select" aria-label="Hero 展示模式">
+          <option value="default">default</option>
+          <option value="none">none</option>
+        </select>
+        <input
+          id="home-hero-image-src"
+          class="admin-inline-builder__text"
+          type="text"
+          inputmode="url"
+          spellcheck="false"
+          placeholder="当前使用：src/assets/hero.png"
+          aria-label="Hero 图片地址"
+        />
+      </div>
+      <p class="admin-help">注：default 显示首页 Hero，none 直接隐藏；图片地址留空时回退内置默认图。</p>
+    </div>
+    <label class="admin-field admin-field--full">
       <span class="admin-label">
-        <span class="admin-label__main">Hero 预置</span>
+        <span class="admin-label__main">Hero 图片说明</span>
+        <span class="admin-label__hint">（用于图片替代说明；留空则使用默认值）</span>
       </span>
-      <select id="home-hero-preset">
-        <option value="default">default</option>
-        <option value="minimal">minimal</option>
-        <option value="none">none</option>
-      </select>
+      <input
+        id="home-hero-image-alt"
+        type="text"
+        maxlength={ADMIN_HERO_IMAGE_ALT_MAX_LENGTH}
+        placeholder={ADMIN_HERO_IMAGE_ALT_DEFAULT}
+      />
     </label>
   </div>
 </fieldset>
