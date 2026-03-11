@@ -24,6 +24,7 @@ const footerStartYear = settings.site.footer.startYear;
 const footerShowCurrentYear = settings.site.footer.showCurrentYear;
 const footerCopyright = settings.site.footer.copyright;
 const showCodeLineNumbers = settings.ui.codeBlock.showLineNumbers;
+const sidebarDividerVariant = settings.ui.layout.sidebarDivider;
 const canonical = (hasSiteUrl && Astro.site)
   ? new URL(Astro.url.pathname, Astro.site).toString()
   : null;
@@ -73,7 +74,7 @@ const withBase = createWithBase(base);
   </head>
   <body class={bodyClass}>
     <a class="skip-link" href="#content">跳到内容</a>
-    <div class="shell">
+    <div class="shell" data-sidebar-divider={sidebarDividerVariant}>
       <Sidebar siteTitle={brandTitle} />
       <div class="divider" aria-hidden="true"></div>
       <main id="content" class="content" tabindex="-1">

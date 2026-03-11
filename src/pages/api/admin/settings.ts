@@ -26,15 +26,19 @@ import {
   ADMIN_HOME_INTRO_MAX_LENGTH,
   ADMIN_LOCALE_RE,
   ADMIN_NAV_IDS,
+  ADMIN_NAV_ORNAMENT_DEFAULT,
+  ADMIN_NAV_ORNAMENT_MAX_LENGTH,
   ADMIN_PAGE_IDS,
   ADMIN_PAGE_TITLE_MAX_LENGTH,
   ADMIN_PAGE_SUBTITLE_MAX_LENGTH,
+  ADMIN_SIDEBAR_DIVIDER_DEFAULT,
   ADMIN_SOCIAL_CUSTOM_LIMIT,
   ADMIN_SOCIAL_PRESET_IDS,
   ADMIN_X_HOSTS,
   getAdminHeroImageLocalFilePath,
   getAdminFooterStartYearMax,
   isAdminHomeIntroLinkKey,
+  isAdminSidebarDividerVariant,
   isAdminNavId,
   isAdminSocialIconKey,
   normalizeAdminHeroImageSrc
@@ -45,6 +49,7 @@ type WritableGroup = 'site' | 'shell' | 'home' | 'page' | 'ui';
 type NavInputItem = {
   id: SidebarNavId;
   label: string;
+  ornament: string | null;
   visible: boolean;
   order: number;
 };
@@ -92,13 +97,14 @@ const HOME_KEYS = [
   'heroImageAlt'
 ] as const;
 const PAGE_KEYS = ['essay', 'archive', 'bits', 'memo', 'about'] as const;
-const UI_KEYS = ['codeBlock', 'readingMode'] as const;
+const UI_KEYS = ['codeBlock', 'readingMode', 'layout'] as const;
 const FOOTER_KEYS = ['startYear', 'showCurrentYear', 'copyright'] as const;
 const SOCIAL_LINK_KEYS = ['github', 'x', 'email', 'presetOrder', 'custom'] as const;
 const SOCIAL_CUSTOM_ITEM_KEYS = ['id', 'label', 'href', 'iconKey', 'visible', 'order'] as const;
 const CODE_BLOCK_KEYS = ['showLineNumbers'] as const;
 const READING_MODE_KEYS = ['showEntry'] as const;
-const NAV_ITEM_KEYS = ['id', 'label', 'visible', 'order'] as const;
+const LAYOUT_KEYS = ['sidebarDivider'] as const;
+const NAV_ITEM_KEYS = ['id', 'label', 'ornament', 'visible', 'order'] as const;
 const PAGE_HEADING_KEYS = ['title', 'subtitle'] as const;
 const MEMO_PAGE_KEYS = ['title', 'subtitle'] as const;
 const BITS_PAGE_KEYS = ['title', 'subtitle', 'defaultAuthor'] as const;
@@ -369,6 +375,25 @@ const parseNavItem = (value: unknown, errors: string[], index: number): NavInput
   const label = toTrimmedString(value.label);
   if (!label) errors.push(`shell.nav[${index}].label 不能为空`);
 
+  let ornament: string | null = ADMIN_NAV_ORNAMENT_DEFAULT;
+  if (Object.prototype.hasOwnProperty.call(value, 'ornament')) {
+    const rawOrnament = value.ornament;
+    if (rawOrnament === null) {
+      ornament = null;
+    } else if (typeof rawOrnament !== 'string') {
+      errors.push(`shell.nav[${index}].ornament 必须是字符串、null 或留空`);
+    } else {
+      const trimmedOrnament = rawOrnament.trim();
+      if (trimmedOrnament.includes('\n') || trimmedOrnament.includes('\r')) {
+        errors.push(`shell.nav[${index}].ornament 只允许单行文本`);
+      } else if (trimmedOrnament.length > ADMIN_NAV_ORNAMENT_MAX_LENGTH) {
+        errors.push(`shell.nav[${index}].ornament 不能超过 ${ADMIN_NAV_ORNAMENT_MAX_LENGTH} 个字符`);
+      } else {
+        ornament = trimmedOrnament || null;
+      }
+    }
+  }
+
   const visible = toBoolean(value.visible);
   if (visible === undefined) errors.push(`shell.nav[${index}].visible 必须是布尔值`);
 
@@ -381,7 +406,7 @@ const parseNavItem = (value: unknown, errors: string[], index: number): NavInput
     return null;
   }
 
-  return { id, label, visible, order };
+  return { id, label, ornament, visible, order };
 };
 
 const applyTitle = (
@@ -883,7 +908,10 @@ const parsePatch = (
       collectUnknownKeys('ui', rawUi, UI_KEYS, errors);
       const nextUi = {
         codeBlock: { ...current.ui.codeBlock },
-        readingMode: { ...current.ui.readingMode }
+        readingMode: { ...current.ui.readingMode },
+        layout: {
+          sidebarDivider: current.ui.layout.sidebarDivider ?? ADMIN_SIDEBAR_DIVIDER_DEFAULT
+        }
       };
 
       if (Object.prototype.hasOwnProperty.call(rawUi, 'codeBlock')) {
@@ -910,6 +938,23 @@ const parsePatch = (
             const value = toBoolean(rawReadingMode.showEntry);
             if (value === undefined) errors.push('ui.readingMode.showEntry 必须是布尔值');
             else nextUi.readingMode.showEntry = value;
+          }
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(rawUi, 'layout')) {
+        const rawLayout = rawUi.layout;
+        if (!isRecord(rawLayout)) {
+          errors.push('ui.layout 必须是对象');
+        } else {
+          collectUnknownKeys('ui.layout', rawLayout, LAYOUT_KEYS, errors);
+          if (Object.prototype.hasOwnProperty.call(rawLayout, 'sidebarDivider')) {
+            const value = toTrimmedString(rawLayout.sidebarDivider);
+            if (!value || !isAdminSidebarDividerVariant(value)) {
+              errors.push('ui.layout.sidebarDivider 只允许 default/subtle/none');
+            } else {
+              nextUi.layout.sidebarDivider = value;
+            }
           }
         }
       }

@@ -18,6 +18,19 @@
   margin: 50px 0;
 }
 
+.shell[data-sidebar-divider='subtle'] .divider {
+  opacity: 0.42;
+}
+
+.shell[data-sidebar-divider='none'] {
+  grid-template-columns: var(--sidebar) 0 1fr;
+}
+
+.shell[data-sidebar-divider='none'] .divider {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* ===============================
    侧边栏与导航
 ================================ */
@@ -92,6 +105,18 @@
   opacity: 0.55;
 }
 
+.nav .nav-ornament {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  color: var(--text);
+  opacity: 0.55;
+  font-size: 14px;
+  line-height: 1;
+  font-family: "LXGW WenKai Lite", "Kaiti SC", "STKaiti", serif;
+}
+
 @media (min-width: 901px) {
   .nav li {
     display: flex;
@@ -114,6 +139,10 @@
   display: flex;
   min-width: 0;
   width: 100%;
+}
+
+.home--compact-start .content {
+  padding-top: 62px;
 }
 
 .content__inner {
@@ -376,7 +405,8 @@
     text-decoration-thickness: 2px;
   }
 
-  .nav .dot {
+  .nav .dot,
+  .nav .nav-ornament {
     display: none;
   }
 
@@ -409,6 +439,10 @@
 
   .content {
     padding: calc(10px + env(safe-area-inset-top)) calc(var(--pad-x) + env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) calc(var(--pad-x) + env(safe-area-inset-left));
+  }
+
+  .home--compact-start .content {
+    padding-top: calc(4px + env(safe-area-inset-top));
   }
 
   .page-header {
@@ -465,6 +499,10 @@
     padding: calc(18px + env(safe-area-inset-top)) calc(var(--pad-x) + env(safe-area-inset-right)) calc(56px + env(safe-area-inset-bottom)) calc(var(--pad-x) + env(safe-area-inset-left));
   }
 
+  .home--compact-start .content {
+    padding-top: calc(8px + env(safe-area-inset-top));
+  }
+
   .nav a {
     padding: 8px 12px;
   }
@@ -495,6 +533,10 @@
 
   .content {
     padding: calc(4px + env(safe-area-inset-top)) calc(var(--pad-x) + env(safe-area-inset-right)) calc(36px + env(safe-area-inset-bottom)) calc(var(--pad-x) + env(safe-area-inset-left));
+  }
+
+  .home--compact-start .content {
+    padding-top: calc(env(safe-area-inset-top));
   }
 }
 

@@ -11,6 +11,7 @@ import {
   ADMIN_FOOTER_START_YEAR_MIN,
   ADMIN_HOME_INTRO_MAX_LENGTH,
   ADMIN_NAV_IDS,
+  ADMIN_NAV_ORNAMENT_DEFAULT,
   ADMIN_PAGE_TITLE_MAX_LENGTH,
   ADMIN_PAGE_SUBTITLE_MAX_LENGTH,
   ADMIN_SOCIAL_CUSTOM_LIMIT,
@@ -58,6 +59,7 @@ const initialPayloadWithFallbackNav = {
         return {
           id,
           label: navLabelFallback[id],
+          ornament: ADMIN_NAV_ORNAMENT_DEFAULT,
           visible: true,
           order: index + 1
         };
@@ -83,10 +85,25 @@ const bootstrapJson = JSON.stringify(initialPayloadWithFallbackNav).replace(/</g
             <h1 class="page-title">Theme Console</h1>
             <span class="page-subtitle">主题设置</span>
           </div>
-          <p id="admin-status" class="admin-status" data-state="idle">等待加载</p>
+          <p
+            id="admin-status"
+            class="admin-status"
+            data-state="idle"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            等待加载
+          </p>
         </header>
 
-        <p id="admin-error-banner" class="admin-banner admin-banner--error" hidden></p>
+        <p
+          id="admin-error-banner"
+          class="admin-banner admin-banner--error"
+          hidden
+          role="alert"
+          tabindex="-1"
+        ></p>
 
         <form id="admin-form" class="admin-form" novalidate>
           <AdminSiteSection
@@ -109,10 +126,23 @@ const bootstrapJson = JSON.stringify(initialPayloadWithFallbackNav).replace(/</g
           <AdminUiSection />
         </form>
 
-        <div class="admin-actions">
-          <p id="admin-dirty-banner" class="admin-banner admin-banner--dirty" hidden aria-live="polite">
-            * 你有未保存更改，离开页面会触发提醒。
-          </p>
+        <div id="admin-actions-sentinel" class="admin-actions__sentinel" aria-hidden="true"></div>
+        <div id="admin-actions" class="admin-actions" data-dirty="false" data-sticky="false">
+          <div class="admin-actions__meta">
+            <p id="admin-dirty-banner" class="admin-banner admin-banner--dirty" hidden aria-live="polite">
+              * 你有未保存更改，离开页面会触发提醒。
+            </p>
+            <p
+              id="admin-status-inline"
+              class="admin-status admin-status--inline"
+              data-state="idle"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              等待加载
+            </p>
+          </div>
           <div class="admin-actions__buttons">
             <button id="admin-validate" class="admin-btn" type="button">检查配置</button>
             <button id="admin-reset" class="admin-btn admin-btn--ghost" type="button">重置更改</button>

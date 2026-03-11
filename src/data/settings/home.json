@@ -5,9 +5,9 @@
     "archive",
     "essay"
   ],
-  "showIntroLead": false,
-  "showIntroMore": false,
-  "heroPresetId": "none",
+  "showIntroLead": true,
+  "showIntroMore": true,
+  "heroPresetId": "default",
   "heroImageSrc": null,
   "heroImageAlt": "Whono theme preview"
 }

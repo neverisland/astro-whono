@@ -26,15 +26,15 @@ const { footerStartYearMin, footerStartYearMax, socialCustomLimit } = Astro.prop
     </label>
     <label class="admin-field">
       <span class="admin-label">
-        <span class="admin-label__main">默认语言</span>
-        <span class="admin-label__hint">（映射到 <code>&lt;html lang&gt;</code>）</span>
+        <span class="admin-label__main">站点语言</span>
+        <span class="admin-label__hint">（默认值为 zh-CN）</span>
       </span>
       <input id="site-default-locale" type="text" autocomplete="off" />
     </label>
     <label class="admin-field admin-field--full">
       <span class="admin-label">
         <span class="admin-label__main">默认 SEO 描述</span>
-        <span class="admin-label__hint">（用于未单独设置 description 的页面）</span>
+        <span class="admin-label__hint">（用于搜索结果和分享摘要）</span>
       </span>
       <textarea id="site-description" rows="3"></textarea>
     </label>

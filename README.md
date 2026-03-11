@@ -25,6 +25,7 @@
 - 双栏布局（侧栏导航 + 内容区）
 - 移动端适配
 - 内容集合：随笔 / 絮语 / 小记（归档为目录视图）
+- 内置本地 Theme Console（/admin）：开发环境下可视化管理站点配置，fork / clone 后可快速完成站点接管
 - 絮语草稿生成器：/bits 页面一键生成 Markdown（复制/下载），支持多图与自动读取尺寸
 - RSS：聚合 + 分栏订阅
 - 浅色 / 深色模式 + 阅读模式
@@ -119,35 +120,57 @@ npm run build && npm run preview
 
 ### Theme Console（/admin）
 
-`/admin` 是 Phase 1 / 1.5 的 Theme Console（配置控制台），用于本地开发场景下编辑主题配置，不是 CMS。
+astro-whono 内置本地 Theme Console，用于开发环境中可视化配置主题，在fork 或 clone 项目后，无需熟悉整个项目结构即可快速完成站点接管。
 
-- 开发环境：`/admin/` 可操作，读取/保存 `site/shell/home/page/ui` 五组配置
-- 生产环境：`/admin/` 仅显示只读提示页，不提供可写操作
-- 查询接口：`GET /api/admin/settings/`（仅 `DEV` 返回完整编辑载荷；`PROD` 只返回安全只读响应）
-- 保存接口：`POST /api/admin/settings/`（仅 `DEV` 可写，且仅接受同源 `application/json` 请求）
-- 运行策略：`astro.config.mjs` 在开发态使用 `server` output，让 `/api/admin/settings/` 可以处理 `POST`；构建阶段回到 `static`，继续输出纯静态产物
-- 落盘文件：`src/data/settings/site.json`、`src/data/settings/shell.json`、`src/data/settings/home.json`、`src/data/settings/page.json`、`src/data/settings/ui.json`
-- 写入策略：使用 staged temp + commit/rollback，避免多文件保存出现半成功状态
-- 当前已开放字段：基础站点信息、`site.footer.startYear`、`site.footer.showCurrentYear`、`site.footer.copyright`、`site.socialLinks.github|x|email|presetOrder|custom[]`、`shell.brandTitle`、`shell.quote`、`shell.nav`、`home.introLead`、`home.introMore`、`home.showIntroLead`、`home.showIntroMore`、`home.heroPresetId`、`home.heroImageSrc`、`home.heroImageAlt`、`page.{essay|archive|bits|memo|about}.{title|subtitle}`、`page.bits.defaultAuthor`、`ui.codeBlock.showLineNumbers`、`ui.readingMode.showEntry`
-- Phase 1.5：已完成 M1 `site.footer` / `site.socialLinks` 扩展、M2 `home.introLead` / `home.introMore` / `home.showIntroLead` / `home.showIntroMore`、M3 固定页标题字段与 `page.bits.defaultAuthor`、M4 about 页统一社交渲染、M5 `/admin` 自定义社交链接编辑 UI
-- `site.socialLinks` 当前支持固定字段 `github` / `x` / `email`、固定平台排序 `presetOrder.{github|x|email}`，以及 `custom[]`；`custom[]` 每项固定为 `id / label / href / iconKey / visible / order`
-- `custom[]` 最多 `8` 条，`href` 仅允许 `https://`，`iconKey` 仅允许 `github / x / email / weibo / facebook / instagram / telegram / mastodon / bilibili / youtube / linkedin / website / link / globe`
-- 固定平台与扩展链接在 `/admin` 中共用同一张排序表；固定平台不可删除，但可编辑链接值和位置排序，留空即隐藏
-- 运行时会在 `src/lib/theme-settings.ts` 统一生成只读的 `resolvedSocialItems`，供 `about` 等前台页面消费；固定平台会先按 `presetOrder` 参与排序，再与 `custom[]` 一起合并；该字段不会回写到保存请求
-- 首页导语主文案与补充文案都可分别控制是否展示；补充文案支持在 `/admin/` 中选择 `1-2` 个首页内部入口（当前支持 `archive / essay / bits / memo / about`），前台仍按固定句式渲染为“补充文案 + 链接 + 可选 `或` + 链接”
-- 首页 Hero 支持在 `/admin/` 中切换 `default / none` 展示模式，并可配置图片地址与 `alt` 文案；图片地址支持 `src/assets/**`、`public/**`（或 `/` 开头站内路径）以及 `https://` 图床链接，留空时回退内置默认图
-- 固定页支持在 `/admin/` 中分别配置页面主标题与副标题；当前 `essay` / `archive` 的动态计数、分页与 RSS 标题仍由前台固定输出，`memo` 未填写时仍回退到 frontmatter
-- 白名单约束：仅允许受控字段；`site.socialLinks.custom[]` 不开放原始 SVG / HTML，自定义社交项只允许受控图标键与受控字段；Sidebar 仍只允许编辑既有导航项
+<details>
+<summary><strong>Theme Console 预览</strong></summary>
 
-兼容迁移（面向已有 fork）：
+<br>
 
-- 未创建 `src/data/settings/*.json` 时，前台仍按 `settings > legacy > default` 正常读取
-- 首次在 `/admin` 点击保存后，才会生成上述 JSON 文件（无需手动迁移脚本）
+站点设置与侧栏配置：
 
-搜索与收录边界：
+![Theme Console - Site and Sidebar](.github/assets/theme-console-overview-1.png)
 
-- `/admin` 默认 `noindex,nofollow`
-- `/admin` 不进入 sitemap（避免误导为线上可写后台）
+首页、内页与阅读/代码设置：
+
+![Theme Console - Home, Pages and UI](.github/assets/theme-console-overview-2.png)
+
+</details>
+
+#### 当前可配置内容
+Theme Console 主要面向**站点级**和**页面级**配置，目前支持：
+
+- 站点标题、描述、品牌名等基础信息
+- 首页导语与 Hero图片设置
+- 侧边栏导航的显示、顺序与文案
+- 社交链接与自定义社交项
+- 底部版权行 / Footer 基础文案
+- 固定内页的主副标题
+- /bits/ 页面默认作者
+
+#### 如何启用
+
+Theme Console 默认用于**本地开发环境**。
+
+启动开发环境：
+
+```bash
+npm install
+npm run dev
+```
+在浏览器中打开 `http://localhost:4321/admin/`
+(如果你修改了开发端口，请将 `4321` 替换为实际端口。)
+
+#### 生产环境说明
+
+- 开发环境下可用，并支持保存配置
+- 生产构建仍然保持静态站点输出,不提供可写的后台能力
+
+
+#### 兼容迁移（已有 fork用户）：
+
+- 未创建 `src/data/settings/*.json` 时，前台仍会按 `settings > legacy > default` 正常读取
+- 首次在 `/admin` 点击保存后，才会生成对应的 JSON 文件，无需手动执行迁移脚本
 
 
 ## 内容与写作

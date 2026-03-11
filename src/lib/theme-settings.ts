@@ -7,8 +7,12 @@ import {
   ADMIN_HOME_INTRO_LINK_DEFAULT,
   ADMIN_HOME_INTRO_LINK_KEY_SET,
   ADMIN_HOME_INTRO_LINK_LIMIT,
+  ADMIN_NAV_ORNAMENT_DEFAULT,
+  ADMIN_NAV_ORNAMENT_MAX_LENGTH,
   ADMIN_HERO_PRESET_SET,
+  ADMIN_SIDEBAR_DIVIDER_DEFAULT,
   getAdminHeroImageLocalFilePath,
+  isAdminSidebarDividerVariant,
   normalizeAdminHeroImageSrc
 } from './admin-console/shared';
 
@@ -17,6 +21,7 @@ export type SettingSource = 'new' | 'legacy' | 'default';
 export type SidebarNavId = 'essay' | 'bits' | 'memo' | 'archive' | 'about';
 export type PageId = 'essay' | 'archive' | 'bits' | 'memo' | 'about';
 export type HeroPresetId = 'default' | 'none';
+export type SidebarDividerVariant = 'default' | 'subtle' | 'none';
 export type HomeIntroLinkKey = 'archive' | 'essay' | 'bits' | 'memo' | 'about';
 export type SiteSocialPresetId = 'github' | 'x' | 'email';
 export type SiteSocialKind = 'preset' | 'custom';
@@ -39,6 +44,7 @@ export type SiteSocialIconKey =
 export interface SidebarNavItem {
   id: SidebarNavId;
   label: string;
+  ornament: string | null;
   visible: boolean;
   order: number;
 }
@@ -139,6 +145,9 @@ export interface UiSettings {
   readingMode: {
     showEntry: boolean;
   };
+  layout: {
+    sidebarDivider: SidebarDividerVariant;
+  };
 }
 
 export interface ThemeSettings {
@@ -197,6 +206,7 @@ export interface ThemeSettingsSources {
   ui: {
     codeBlockShowLineNumbers: SettingSource;
     readingModeShowEntry: SettingSource;
+    layoutSidebarDivider: SettingSource;
   };
 }
 
@@ -255,11 +265,11 @@ const LEGACY_SOCIAL_LINKS: SiteSocialLinks = {
   resolvedSocialItems: []
 };
 const LEGACY_NAV: SidebarNavItem[] = [
-  { id: 'essay', label: '随笔', visible: true, order: 1 },
-  { id: 'bits', label: '絮语', visible: true, order: 2 },
-  { id: 'memo', label: '小记', visible: true, order: 3 },
-  { id: 'archive', label: '归档', visible: true, order: 4 },
-  { id: 'about', label: '关于', visible: true, order: 5 }
+  { id: 'essay', label: '随笔', ornament: ADMIN_NAV_ORNAMENT_DEFAULT, visible: true, order: 1 },
+  { id: 'bits', label: '絮语', ornament: ADMIN_NAV_ORNAMENT_DEFAULT, visible: true, order: 2 },
+  { id: 'memo', label: '小记', ornament: ADMIN_NAV_ORNAMENT_DEFAULT, visible: true, order: 3 },
+  { id: 'archive', label: '归档', ornament: ADMIN_NAV_ORNAMENT_DEFAULT, visible: true, order: 4 },
+  { id: 'about', label: '关于', ornament: ADMIN_NAV_ORNAMENT_DEFAULT, visible: true, order: 5 }
 ];
 
 const cloneNavItems = (items: readonly SidebarNavItem[]): SidebarNavItem[] =>
@@ -348,6 +358,18 @@ const DEFAULT_PAGE: PageSettings = {
   }
 };
 
+const DEFAULT_UI: UiSettings = {
+  codeBlock: {
+    showLineNumbers: true
+  },
+  readingMode: {
+    showEntry: true
+  },
+  layout: {
+    sidebarDivider: ADMIN_SIDEBAR_DIVIDER_DEFAULT
+  }
+};
+
 const NAV_IDS: ReadonlySet<SidebarNavId> = new Set(['essay', 'bits', 'memo', 'archive', 'about']);
 const SOCIAL_ICON_KEYS: ReadonlySet<SiteSocialIconKey> = new Set([
   'github',
@@ -406,6 +428,17 @@ const asSingleLineString = (value: unknown, maxLength?: number): string | undefi
   if (next.includes('\n') || next.includes('\r')) return undefined;
   if (typeof maxLength === 'number' && next.length > maxLength) return undefined;
   return next;
+};
+
+const asNullableSingleLineString = (value: unknown, maxLength?: number): string | null | undefined => {
+  if (value === null) return null;
+  if (typeof value !== 'string') return undefined;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes('\n') || trimmed.includes('\r')) return undefined;
+  if (typeof maxLength === 'number' && trimmed.length > maxLength) return undefined;
+  return trimmed;
 };
 
 const asInteger = (value: unknown): number | undefined => {
@@ -484,6 +517,11 @@ const asHeroPresetId = (value: unknown): HeroPresetId | undefined => {
   return ADMIN_HERO_PRESET_SET.has(value as HeroPresetId) ? (value as HeroPresetId) : undefined;
 };
 
+const asSidebarDividerVariant = (value: unknown): SidebarDividerVariant | undefined => {
+  if (typeof value !== 'string') return undefined;
+  return isAdminSidebarDividerVariant(value) ? value : undefined;
+};
+
 const asHeroImageSrc = (value: unknown): string | null | undefined => {
   const normalized = normalizeAdminHeroImageSrc(value);
   if (normalized === undefined || normalized === null) return normalized;
@@ -544,10 +582,17 @@ const parseSidebarNav = (value: unknown): SidebarNavItem[] | undefined => {
     if (!current) continue;
 
     const label = asNonEmptyString(row.label) ?? current.label;
+    const ornament = asNullableSingleLineString(row.ornament, ADMIN_NAV_ORNAMENT_MAX_LENGTH);
     const visible = asBoolean(row.visible) ?? current.visible;
     const order = asFiniteNumber(row.order) ?? current.order;
 
-    merged.set(id, { id, label, visible, order });
+    merged.set(id, {
+      id,
+      label,
+      ornament: ornament === undefined ? current.ornament : ornament,
+      visible,
+      order
+    });
     hasOverride = true;
   }
 
@@ -854,16 +899,22 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
 
   const uiCodeBlock = isRecord(uiJson?.codeBlock) ? uiJson.codeBlock : undefined;
   const uiReadingMode = isRecord(uiJson?.readingMode) ? uiJson.readingMode : undefined;
+  const uiLayout = isRecord(uiJson?.layout) ? uiJson.layout : undefined;
 
   const showLineNumbers = resolveValue(
     asBoolean(uiCodeBlock?.showLineNumbers),
-    true,
-    true
+    DEFAULT_UI.codeBlock.showLineNumbers,
+    DEFAULT_UI.codeBlock.showLineNumbers
   );
   const showReadingEntry = resolveValue(
     asBoolean(uiReadingMode?.showEntry),
-    true,
-    true
+    DEFAULT_UI.readingMode.showEntry,
+    DEFAULT_UI.readingMode.showEntry
+  );
+  const sidebarDivider = resolveValue(
+    asSidebarDividerVariant(uiLayout?.sidebarDivider),
+    undefined,
+    DEFAULT_UI.layout.sidebarDivider
   );
 
   const customSocialItems = cloneSocialCustomItems(socialLinksCustom.value);
@@ -949,6 +1000,9 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
         },
         readingMode: {
           showEntry: showReadingEntry.value
+        },
+        layout: {
+          sidebarDivider: sidebarDivider.value
         }
       }
     },
@@ -999,7 +1053,8 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
       },
       ui: {
         codeBlockShowLineNumbers: showLineNumbers.source,
-        readingModeShowEntry: showReadingEntry.source
+        readingModeShowEntry: showReadingEntry.source,
+        layoutSidebarDivider: sidebarDivider.source
       }
     }
   };
@@ -1051,7 +1106,8 @@ export const toEditableThemeSettingsPayload = (
     },
     ui: {
       codeBlock: { ...resolved.settings.ui.codeBlock },
-      readingMode: { ...resolved.settings.ui.readingMode }
+      readingMode: { ...resolved.settings.ui.readingMode },
+      layout: { ...resolved.settings.ui.layout }
     }
   },
   sources: cloneThemeSettingsSources(resolved.sources)

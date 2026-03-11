@@ -6,36 +6,25 @@ The format is based on Keep a Changelog, and this project aims to follow Semanti
 
 
 ## [Unreleased]
+本次更新聚焦本地 Theme Console，方便 fork 或 clone 后更快接管站点配置。
+
 ### Added
-- 新增本地主题设置页 `/admin/`，用于集中编辑站点标题、默认描述、页脚版权、首页导语、栏目副标题和 Bits 默认作者等主题配置
-- 新增侧栏设置，支持修改站点名、引用文案，以及既有导航项的名称、排序和显示状态
-- 新增社交链接设置，支持维护 GitHub、X、Email 和最多 8 条自定义链接；关于页会同步显示
-- 新增显示开关，支持控制阅读模式入口和代码行号
-- 新增首页导语主文案 / 补充文案的独立展示开关，可在 `/admin/` 中分别控制首页是否渲染两段导语
-- 新增本地配置保存机制；首次保存时生成本地配置文件，未生成前仍兼容旧配置读取
+- 新增本地 Theme Console `/admin/`，可在开发环境中集中管理站点标题、默认描述、页脚版权、首页导语、侧栏导航、社交链接、内页主副标题和 Bits 默认作者。
+- 新增界面显示选项，可控制阅读模式入口、代码行号和侧栏分隔线样式。
+- 新增首页导语与侧栏导航的细粒度配置，支持独立显隐、排序和点缀字符设置。
+- 新增本地配置保存机制；首次保存会生成 `src/data/settings/*.json`，旧配置仍可继续兼容读取。
 
 ### Changed
-- `/admin/` 的首页 Hero 配置改为真实生效：移除无实际语义的 `minimal` 选项，新增 `heroImageSrc` / `heroImageAlt`，支持 `src/assets/**`、`public/**` 与 `https://` 图片来源，并由首页直接消费
-- 页脚、首页导语、侧栏和关于页社交信息改为读取统一配置，与 `/admin/` 设置保持一致
-- `/admin/` 的社交链接表支持固定平台参与统一排序；GitHub / X / Email 保留预设语义，但可编辑位置排序
-- `/admin/` 客户端控制器从页面内联脚本迁到 `src/scripts/admin-console/index.ts`，并抽出 `src/lib/admin-console/shared.ts` 统一收口共享规则与默认值
-- `/admin/` 表单分组已拆到 `src/components/admin/`，社交链接子树也独立为组件，`src/pages/admin/index.astro` 进一步收敛为页面装配层
-- `/admin/` 样式层已拆为 `admin-form` / `admin-social` / `admin-nav` / `admin-responsive` 四段，`src/styles/components/admin.css` 退化为聚合入口
-- 首页现在按 `home.showIntroLead` / `home.showIntroMore` 配置决定是否渲染两段导语；补充导语支持在 `/admin/` 选择 `1-2` 个首页内部入口，前台继续按固定句式渲染，并对旧配置回退到 `归档 / 随笔`
-- 生产环境中的 `/admin/` 保持只读，并从 sitemap 中排除
-- `GET /api/admin/settings/` 改为开发态返回完整编辑载荷、生产态只返回安全只读响应，不再公开输出完整 Theme Console 配置
-- Theme Console 的读写载荷边界统一为“可直接回写”的编辑模型，移除 `resolvedSocialItems` 等运行时派生字段
-- Theme Console 多文件保存流程升级为 staged temp + commit/rollback，避免跨文件半成功状态
-- 优化 `/admin/` Theme Console 的表单布局、提示文案与排序控件样式，提升本地配置台的一致性
-- `/admin/` 的内页设置新增路径优先的“主标题 | 副标题”组合控件；`/essay/`、`/archive/`、`/bits/`、`/memo/`、`/about/` 可分别配置页面主副标题，`/memo/` 未填写时继续回退到 frontmatter
+- 首页、侧栏、页脚和关于页等站点信息统一接入 Theme Console 配置，后台修改可直接反映到前台。
+- 首页 Hero 与各内页标题配置能力增强，支持自定义 Hero 图片和栏目主副标题。
+- 社交链接支持固定平台与自定义链接统一排序，前台展示与后台配置保持一致。
+- 生产环境中的 `/admin/` 保持只读，并从 sitemap 中排除。
+- 首页在 Hero 与导语都关闭时会切换到更紧凑的首屏节奏，减少首屏留白。
 
 ### Fixed
-- 修复 `/admin/` 首次加载可能提示接口读取失败的问题
-- 修复开发环境下 `/admin/` 偶发无法保存配置的问题
-- 改进保存失败提示，便于区分空请求、JSON 格式错误和字段校验失败
-- 修复开发态 `POST /api/admin/settings/` 缺少请求来源校验的问题；现在仅接受同源 `application/json` 请求
-- 修复 `/admin/` 中将字段改回原值后仍被判定为“未保存更改”的问题
-- 修复部分浏览器下 `/admin/` 离页提醒不触发确认对话框的问题
+- 修复 `/admin/` 首次加载可能报错、开发环境下偶发无法保存配置的问题。
+- 修复字段改回原值后仍被判定为“未保存更改”的问题，以及部分浏览器下离页提醒失效的问题。
+- 修复隐藏侧栏分隔线后页面布局错位的问题，并改进保存失败时的错误提示与接口校验反馈。
 
 ## [0.1.1] - 2026-02-07
 ### Added

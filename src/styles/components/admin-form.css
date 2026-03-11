@@ -48,6 +48,17 @@
   white-space: nowrap;
 }
 
+.admin-status--inline {
+  margin: 0;
+  align-self: center;
+  transform: none;
+  min-height: 34px;
+  max-width: min(100%, 420px);
+  padding-block: 5px;
+  white-space: normal;
+  line-height: 1.45;
+}
+
 .admin-status::before {
   content: '↻';
   display: inline-grid;
@@ -238,6 +249,10 @@
   max-width: calc((100% - var(--admin-grid-column-gap)) / 2);
 }
 
+.admin-field--sidebar-divider {
+  align-content: start;
+}
+
 .admin-label {
   display: flex;
   flex-wrap: wrap;
@@ -339,6 +354,14 @@
   cursor: default;
 }
 
+.admin-year-range[data-current-year-enabled='true'] .admin-year-range__readonly {
+  color: var(--text) !important;
+}
+
+.admin-year-range[data-current-year-enabled='true'] .admin-year-range__sep {
+  color: var(--muted);
+}
+
 .admin-year-range__toggle {
   display: inline-flex;
   align-items: center;
@@ -409,6 +432,76 @@
   outline: 2px solid var(--muted);
   outline-offset: 1px;
   box-shadow: 0 0 0 3px var(--panel);
+}
+
+.admin-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  width: 100%;
+  min-height: 38px;
+  padding: 2px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--code-content-bg) 100%);
+  box-shadow:
+    inset 0 0 0 1px var(--border),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.admin-segmented__option {
+  position: relative;
+  min-width: 0;
+  display: flex;
+}
+
+.admin-segmented__option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+}
+
+.admin-segmented__option span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 100%;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--muted);
+  font-family: "LXGW WenKai Lite", "Kaiti SC", "STKaiti", serif;
+  font-size: 13px;
+  line-height: 1.3;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.admin-segmented__option:hover span {
+  color: var(--text);
+  background: linear-gradient(180deg, var(--bg) 0%, var(--code-content-bg) 100%);
+}
+
+.admin-segmented__option input:checked + span {
+  border-color: var(--border);
+  background: linear-gradient(180deg, var(--code-content-bg) 0%, var(--panel) 100%);
+  color: var(--text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 1px 2px -1px var(--overlay-20);
+}
+
+.admin-segmented__option input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .admin-label__main code {
@@ -515,11 +608,91 @@
   min-width: 0;
 }
 
+.admin-inline-builder--intro-more {
+  gap: 14px;
+}
+
+.admin-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr) auto;
+  column-gap: 8px;
+  row-gap: 6px;
+  align-items: start;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-hero-grid__copy {
+  min-width: 0;
+  grid-column: 1;
+}
+
+.admin-hero-grid__heading {
+  min-width: 0;
+  align-self: end;
+  grid-column: 3;
+}
+
+.admin-hero-grid__toggle {
+  grid-column: 4;
+  grid-row: 1;
+  align-self: center;
+}
+
+.admin-hero-grid__input {
+  min-width: 0;
+}
+
+.admin-hero-grid__input--primary {
+  grid-column: 1;
+}
+
+.admin-hero-grid__input--secondary {
+  grid-column: 3;
+}
+
 .admin-inline-builder__text {
   flex: 1 1 auto;
   min-width: 0;
   min-height: calc(1.4em + 18px) !important;
   resize: none !important;
+}
+
+.admin-inline-builder--intro-more .admin-inline-builder__text {
+  flex: 0 1 248px;
+  max-width: 300px;
+}
+
+.admin-inline-builder__select-group,
+.admin-inline-builder__secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.admin-inline-builder__label,
+.admin-inline-builder__secondary-sep,
+.admin-inline-builder__divider {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.admin-inline-builder__label,
+.admin-inline-builder__secondary-sep {
+  color: var(--muted);
+}
+
+.admin-inline-builder__select-group {
+  margin-right: 6px;
+}
+
+.admin-inline-builder__divider {
+  color: var(--border);
+  margin-left: 2px;
+  margin-right: 4px;
 }
 
 .admin-inline-builder__select {
@@ -536,7 +709,7 @@
   text-align: center;
 }
 
-.admin-inline-builder__bridge {
+.admin-inline-builder__toggle {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
@@ -549,10 +722,23 @@
   cursor: pointer;
 }
 
-.admin-inline-builder__bridge input {
+.admin-inline-builder__toggle input {
   width: 16px;
   height: 16px;
   margin: 0;
+}
+
+.admin-inline-builder__secondary {
+  color: var(--text);
+  padding-right: 12px;
+  transition:
+    color 160ms ease,
+    opacity 160ms ease;
+}
+
+.admin-inline-builder__secondary[aria-disabled='true'] {
+  color: var(--faint);
+  opacity: 0.74;
 }
 
 .admin-toggle {
@@ -591,11 +777,42 @@
 
 .admin-actions {
   margin-top: auto;
-  padding-top: 14px;
+  padding-top: 24px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 14px;
+}
+
+.admin-actions__sentinel {
+  width: 100%;
+  height: 1px;
+}
+
+.admin-actions[data-sticky='true'] {
+  position: fixed;
+  right: calc((100vw - min(100vw, 1100px)) / 2 + var(--pad-x));
+  bottom: 16px;
+  z-index: 24;
+  width: min(
+    calc(100vw - 32px),
+    calc(min(100vw, 1100px) - var(--sidebar) - 1px - (var(--pad-x) * 2))
+  );
+  margin-top: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--code-content-bg) 100%);
+  box-shadow: 0 20px 40px -34px var(--overlay-35);
+}
+
+.admin-actions__meta {
+  display: flex;
+  flex: 1 1 360px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
 }
 
 .admin-actions__buttons {
@@ -604,6 +821,10 @@
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.admin-actions[data-sticky='true'] .admin-actions__meta {
+  flex: 1 1 320px;
 }
 
 .admin-btn {

@@ -21,6 +21,37 @@ const { homeIntroMaxLength } = Astro.props;
   </legend>
   <div class="admin-grid">
     <div class="admin-field admin-field--full">
+      <div class="admin-hero-grid">
+        <span class="admin-label__copy admin-hero-grid__copy">
+          <label class="admin-label__main" for="home-hero-image-src">Hero 图片地址</label>
+          <span class="admin-label__hint">（地址留空时回退内置默认图）</span>
+        </span>
+        <label class="admin-label__main admin-hero-grid__heading" for="home-hero-image-alt">Hero 图片说明</label>
+        <label class="admin-label__toggle admin-hero-grid__toggle" for="home-show-hero">
+          <input id="home-show-hero" type="checkbox" checked />
+          <span>展示</span>
+        </label>
+        <input
+          id="home-hero-image-src"
+          class="admin-hero-grid__input admin-hero-grid__input--primary"
+          type="text"
+          inputmode="url"
+          spellcheck="false"
+          placeholder="当前使用：src/assets/hero.png"
+          aria-label="Hero 图片地址"
+        />
+        <input
+          id="home-hero-image-alt"
+          class="admin-hero-grid__input admin-hero-grid__input--secondary"
+          type="text"
+          maxlength={ADMIN_HERO_IMAGE_ALT_MAX_LENGTH}
+          placeholder={ADMIN_HERO_IMAGE_ALT_DEFAULT}
+          aria-label="Hero 图片说明"
+        />
+      </div>
+      <p class="admin-help">注：支持 src/assets/**、public/** 或 https:// 图床链接</p>
+    </div>
+    <div class="admin-field admin-field--full">
       <div class="admin-label admin-label--split">
         <span class="admin-label__copy">
           <label class="admin-label__main" for="home-intro-lead">首页导语主文案</label>
@@ -51,75 +82,51 @@ const { homeIntroMaxLength } = Astro.props;
           maxlength={homeIntroMaxLength}
           aria-label="首页导语补充文案"
         ></textarea>
-        <select
-          id="home-intro-more-link-primary"
-          class="admin-inline-builder__select"
-          aria-label="首页导语补充主链接"
-        >
-          {ADMIN_HOME_INTRO_LINK_OPTIONS.map((option) => (
-            <option value={option.id} selected={option.id === ADMIN_HOME_INTRO_LINK_DEFAULT[0]}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <label class="admin-inline-builder__bridge" for="home-intro-more-link-secondary-enabled">
+        <span class="admin-inline-builder__select-group">
+          <select
+            id="home-intro-more-link-primary"
+            class="admin-inline-builder__select"
+            aria-label="首页导语补充主链接"
+          >
+            {ADMIN_HOME_INTRO_LINK_OPTIONS.map((option) => (
+              <option value={option.id} selected={option.id === ADMIN_HOME_INTRO_LINK_DEFAULT[0]}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </span>
+        <span class="admin-inline-builder__divider" aria-hidden="true">|</span>
+        <label class="admin-inline-builder__toggle" for="home-intro-more-link-secondary-enabled">
           <input
             id="home-intro-more-link-secondary-enabled"
             type="checkbox"
-            checked
             aria-controls="home-intro-more-link-secondary"
           />
-          <span>或</span>
+          <span>启用双链接</span>
         </label>
-        <select
-          id="home-intro-more-link-secondary"
-          class="admin-inline-builder__select"
-          aria-label="首页导语补充第二链接"
+        <span
+          id="home-intro-more-link-secondary-group"
+          class="admin-inline-builder__secondary"
+          aria-disabled="true"
         >
-          {ADMIN_HOME_INTRO_LINK_OPTIONS.map((option) => (
-            <option value={option.id} selected={option.id === ADMIN_HOME_INTRO_LINK_DEFAULT[1]}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          <span class="admin-inline-builder__secondary-sep">或</span>
+          <select
+            id="home-intro-more-link-secondary"
+            class="admin-inline-builder__select"
+            aria-label="首页导语补充第二链接"
+            disabled
+          >
+            {ADMIN_HOME_INTRO_LINK_OPTIONS.map((option) => (
+              <option value={option.id} selected={option.id === ADMIN_HOME_INTRO_LINK_DEFAULT[1]}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </span>
       </div>
       <p class="admin-help">
-        补充导语预览：<code id="home-intro-more-preview" class="admin-help__preview-value">更多文章请访问 归档 或 随笔。</code>
+        补充导语预览：<code id="home-intro-more-preview" class="admin-help__preview-value">更多文章请访问 归档。</code>
       </p>
     </div>
-    <div class="admin-field admin-field--full">
-      <div class="admin-label">
-        <span class="admin-label__main">Hero 展示</span>
-        <span class="admin-label__hint">（支持 src/assets/**、public/** 或 https:// 图床链接）</span>
-      </div>
-      <div class="admin-inline-builder">
-        <select id="home-hero-preset" class="admin-inline-builder__select" aria-label="Hero 展示模式">
-          <option value="default">default</option>
-          <option value="none">none</option>
-        </select>
-        <input
-          id="home-hero-image-src"
-          class="admin-inline-builder__text"
-          type="text"
-          inputmode="url"
-          spellcheck="false"
-          placeholder="当前使用：src/assets/hero.png"
-          aria-label="Hero 图片地址"
-        />
-      </div>
-      <p class="admin-help">注：default 显示首页 Hero，none 直接隐藏；图片地址留空时回退内置默认图。</p>
-    </div>
-    <label class="admin-field admin-field--full">
-      <span class="admin-label">
-        <span class="admin-label__main">Hero 图片说明</span>
-        <span class="admin-label__hint">（用于图片替代说明；留空则使用默认值）</span>
-      </span>
-      <input
-        id="home-hero-image-alt"
-        type="text"
-        maxlength={ADMIN_HERO_IMAGE_ALT_MAX_LENGTH}
-        placeholder={ADMIN_HERO_IMAGE_ALT_DEFAULT}
-      />
-    </label>
   </div>
 </fieldset>

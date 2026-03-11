@@ -25,6 +25,7 @@ A minimal two-column Astro theme for personal writing and lightweight publishing
 - Two-column layout (sidebar navigation + content area)
 - Responsive design for mobile devices
 - Content collections: essay / bits / memo (archive is generated from essay)
+- Built-in local Theme Console (`/admin`) for visually managing site settings during development, making it easy to take over the theme after forking or cloning
 - Bits draft generator on `/bits/`: one-click Markdown output (copy/download), with multi-image support and automatic image dimension detection
 - RSS: aggregated feed + section feeds
 - Light / dark theme + reading mode
@@ -117,6 +118,60 @@ If execution policy blocks `npm.ps1`, use one of the following:
 - Content collections: `src/content.config.ts`
 - Style entry: `src/styles/global.css`
 
+### Theme Console (`/admin`)
+
+astro-whono includes a local Theme Console for visually configuring the theme during development. After forking or cloning the project, you can take over site-level settings without first learning the entire codebase structure.
+
+<details>
+<summary><strong>Theme Console Preview</strong></summary>
+
+<br>
+
+Site settings and sidebar configuration:
+
+![Theme Console - Site and Sidebar](.github/assets/theme-console-overview-1.png)
+
+Home page, inner pages, and reading/code settings:
+
+![Theme Console - Home, Pages and UI](.github/assets/theme-console-overview-2.png)
+
+</details>
+
+#### What you can configure
+Theme Console currently focuses on **site-level** and **page-level** settings, including:
+
+- Site title, description, brand name, and other basic metadata
+- Home intro copy and Hero image settings
+- Sidebar navigation labels, visibility, and ordering
+- Social links and custom social items
+- Footer copyright line / basic footer copy
+- Main title and subtitle for fixed inner pages
+- Default author for the `/bits/` page
+
+#### How to use it
+
+Theme Console is intended for **local development** by default.
+
+Start the dev server:
+
+```bash
+npm install
+npm run dev
+```
+
+Then open `http://localhost:4321/admin/` in your browser.
+(If you changed the dev server port, replace `4321` with your actual port.)
+
+#### Production behavior
+
+- Available in development, with config saving enabled
+- Production builds remain static output and do not expose a writable admin backend
+
+#### Compatibility for existing forks
+
+- If `src/data/settings/*.json` does not exist yet, the frontend still reads config via `settings > legacy > default`
+- The JSON files are generated only after the first save in `/admin`, so no manual migration script is required
+
 
 ## Content and Writing
 
@@ -160,7 +215,7 @@ images:                         # Optional: multi-image list (dimensions reduce 
 
 Author info (on `/bits/` only):
 
-- Default author and avatar are configured in `site.config.mjs`: `site.author` / `site.authorAvatar`
+- Default author and avatar are read from Theme Console via `page.bits.defaultAuthor`; if `src/data/settings/page.json` does not exist yet, they fall back to `site.author` / `site.authorAvatar` in `site.config.mjs`
 - `authorAvatar` should be a relative path only (no `public/`, no leading `/`), for example: `author/avatar.webp`
 - Per-bit overrides are supported via `author` in frontmatter:
 

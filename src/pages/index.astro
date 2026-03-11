@@ -20,6 +20,14 @@ const {
 } = getThemeSettings();
 const shouldShowHero = heroPresetId !== 'none';
 const shouldShowIntro = showIntroLead || showIntroMore;
+const homeBodyClass = [
+  'home',
+  !shouldShowHero ? 'home--no-hero' : null,
+  !shouldShowIntro ? 'home--no-intro' : null,
+  !shouldShowHero && !shouldShowIntro ? 'home--compact-start' : null
+]
+  .filter(Boolean)
+  .join(' ');
 const resolvedIntroMoreLinks = (introMoreLinks.length ? introMoreLinks : [...ADMIN_HOME_INTRO_LINK_DEFAULT]).map(
   (linkKey) => getAdminHomeIntroLinkOption(linkKey)
 );
@@ -32,7 +40,7 @@ const visibleEssays = essays.filter((entry) => !isReservedSlug(entry.data.slug ?
 const latest = visibleEssays.slice(0, 12);
 ---
 
-<BaseLayout bodyClass={shouldShowIntro ? 'home' : 'home home--no-intro'}>
+<BaseLayout bodyClass={homeBodyClass}>
   <h1 class="sr-only">Astro Themes by Whono</h1>
   {
     shouldShowHero && (

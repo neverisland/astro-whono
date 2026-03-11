@@ -1,5 +1,6 @@
 import type {
   HomeIntroLinkKey,
+  SidebarDividerVariant,
   SidebarNavId,
   SiteSocialIconKey,
   SiteSocialPresetId,
@@ -19,14 +20,18 @@ import {
   ADMIN_HOME_INTRO_MAX_LENGTH,
   ADMIN_LOCALE_RE,
   ADMIN_NAV_IDS,
+  ADMIN_NAV_ORNAMENT_DEFAULT,
+  ADMIN_NAV_ORNAMENT_MAX_LENGTH,
   ADMIN_PAGE_TITLE_MAX_LENGTH,
   ADMIN_PAGE_SUBTITLE_MAX_LENGTH,
+  ADMIN_SIDEBAR_DIVIDER_DEFAULT,
   ADMIN_SOCIAL_CUSTOM_LIMIT,
   ADMIN_SOCIAL_PRESET_IDS,
   ADMIN_SOCIAL_PRESET_ORDER_DEFAULT,
   ADMIN_X_HOSTS,
   getAdminFooterStartYearMax,
   isAdminHomeIntroLinkKey,
+  isAdminSidebarDividerVariant,
   isAdminAllowedHttpsUrl,
   isAdminHeroPresetId,
   isAdminNavId,
@@ -42,6 +47,10 @@ type EditableNavItem = EditableSettings['shell']['nav'][number];
 type SocialPresetOrder = Record<SiteSocialPresetId, number>;
 type LoadSource = 'bootstrap' | 'remote';
 type LooseRecord = Record<string, unknown>;
+type ValidationIssue = {
+  message: string;
+  focusTarget?: () => HTMLElement | null;
+};
 
 const root = document.querySelector<HTMLElement>('[data-admin-root]');
 
@@ -65,7 +74,10 @@ if (!root) {
 
   const controls = ensureElements({
     form: byId<HTMLFormElement>('admin-form'),
+    adminActions: byId<HTMLElement>('admin-actions'),
+    adminActionsSentinel: byId<HTMLElement>('admin-actions-sentinel'),
     statusEl: byId<HTMLElement>('admin-status'),
+    statusInlineEl: byId<HTMLElement>('admin-status-inline'),
     dirtyBanner: byId<HTMLElement>('admin-dirty-banner'),
     errorBanner: byId<HTMLElement>('admin-error-banner'),
     validateBtn: byId<HTMLButtonElement>('admin-validate'),
@@ -99,6 +111,7 @@ if (!root) {
     homeIntroMorePreviewEl: byId<HTMLElement>('home-intro-more-preview'),
     inputHomeIntroMoreLinkPrimary: byId<HTMLSelectElement>('home-intro-more-link-primary'),
     inputHomeIntroMoreLinkSecondaryEnabled: byId<HTMLInputElement>('home-intro-more-link-secondary-enabled'),
+    homeIntroMoreLinkSecondaryGroupEl: byId<HTMLElement>('home-intro-more-link-secondary-group'),
     inputHomeIntroMoreLinkSecondary: byId<HTMLSelectElement>('home-intro-more-link-secondary'),
     inputPageEssayTitle: byId<HTMLInputElement>('page-essay-title'),
     inputPageEssaySubtitle: byId<HTMLInputElement>('page-essay-subtitle'),
@@ -112,11 +125,14 @@ if (!root) {
     inputPageAboutSubtitle: byId<HTMLInputElement>('page-about-subtitle'),
     inputPageBitsAuthorName: byId<HTMLInputElement>('page-bits-author-name'),
     inputPageBitsAuthorAvatar: byId<HTMLInputElement>('page-bits-author-avatar'),
-    inputHeroPreset: byId<HTMLSelectElement>('home-hero-preset'),
+    inputHomeShowHero: byId<HTMLInputElement>('home-show-hero'),
     inputHeroImageSrc: byId<HTMLInputElement>('home-hero-image-src'),
     inputHeroImageAlt: byId<HTMLInputElement>('home-hero-image-alt'),
     inputCodeLineNumbers: byId<HTMLInputElement>('ui-code-line-numbers'),
-    inputReadingEntry: byId<HTMLInputElement>('ui-reading-entry')
+    inputReadingEntry: byId<HTMLInputElement>('ui-reading-entry'),
+    inputSidebarDividerDefault: byId<HTMLInputElement>('ui-layout-sidebar-divider-default'),
+    inputSidebarDividerSubtle: byId<HTMLInputElement>('ui-layout-sidebar-divider-subtle'),
+    inputSidebarDividerNone: byId<HTMLInputElement>('ui-layout-sidebar-divider-none')
   });
 
   if (!controls) {
@@ -124,7 +140,10 @@ if (!root) {
   } else {
     const {
       form,
+      adminActions,
+      adminActionsSentinel,
       statusEl,
+      statusInlineEl,
       dirtyBanner,
       errorBanner,
       validateBtn,
@@ -158,6 +177,7 @@ if (!root) {
       homeIntroMorePreviewEl,
       inputHomeIntroMoreLinkPrimary,
       inputHomeIntroMoreLinkSecondaryEnabled,
+      homeIntroMoreLinkSecondaryGroupEl,
       inputHomeIntroMoreLinkSecondary,
       inputPageEssayTitle,
       inputPageEssaySubtitle,
@@ -171,11 +191,14 @@ if (!root) {
       inputPageAboutSubtitle,
       inputPageBitsAuthorName,
       inputPageBitsAuthorAvatar,
-      inputHeroPreset,
+      inputHomeShowHero,
       inputHeroImageSrc,
       inputHeroImageAlt,
       inputCodeLineNumbers,
-      inputReadingEntry
+      inputReadingEntry,
+      inputSidebarDividerDefault,
+      inputSidebarDividerSubtle,
+      inputSidebarDividerNone
     } = controls;
 
     const getNavRows = (): HTMLElement[] => queryAll<HTMLElement>(root, '[data-nav-id]');
@@ -209,6 +232,12 @@ if (!root) {
 
     const normalizeMultiline = (value: string): string => value.replace(/\r\n/g, '\n');
     const normalizeOptionalSingleLine = (value: string): string | null => {
+      const normalized = normalizeMultiline(value).trim();
+      return normalized || null;
+    };
+    const normalizeNavOrnament = (value: unknown): string | null => {
+      if (value === null) return null;
+      if (typeof value !== 'string') return ADMIN_NAV_ORNAMENT_DEFAULT;
       const normalized = normalizeMultiline(value).trim();
       return normalized || null;
     };
@@ -285,6 +314,7 @@ if (!root) {
       const primary = getSelectedHomeIntroLink(inputHomeIntroMoreLinkPrimary, defaultPrimaryHomeIntroLink);
       const hasSecondary = Boolean(inputHomeIntroMoreLinkSecondaryEnabled.checked);
       inputHomeIntroMoreLinkSecondary.disabled = !hasSecondary;
+      homeIntroMoreLinkSecondaryGroupEl.setAttribute('aria-disabled', String(!hasSecondary));
 
       if (hasSecondary) {
         const secondary = getSelectedHomeIntroLink(
@@ -313,9 +343,19 @@ if (!root) {
       return secondary !== primary ? [primary, secondary] : [primary];
     };
     const syncHeroControls = (): void => {
-      const isHidden = inputHeroPreset.value.trim() === 'none';
+      const isHidden = !inputHomeShowHero.checked;
       inputHeroImageSrc.disabled = isHidden;
       inputHeroImageAlt.disabled = isHidden;
+    };
+    const getSelectedSidebarDividerVariant = (): SidebarDividerVariant => {
+      if (inputSidebarDividerSubtle.checked) return 'subtle';
+      if (inputSidebarDividerNone.checked) return 'none';
+      return ADMIN_SIDEBAR_DIVIDER_DEFAULT;
+    };
+    const applySidebarDividerVariant = (value: SidebarDividerVariant): void => {
+      inputSidebarDividerDefault.checked = value === 'default';
+      inputSidebarDividerSubtle.checked = value === 'subtle';
+      inputSidebarDividerNone.checked = value === 'none';
     };
 
     const getPresetOrderInputs = (): Record<SiteSocialPresetId, HTMLInputElement> => ({
@@ -335,10 +375,101 @@ if (!root) {
     let baseline: EditableSettings | null = null;
     let isDirty = false;
     let isSaving = false;
+    let isAdminActionsNearViewport = false;
+    const statusTargets = [statusEl, statusInlineEl];
+
+    const createIssue = (message: string, focusTarget?: () => HTMLElement | null): ValidationIssue =>
+      focusTarget ? { message, focusTarget } : { message };
+    const resolveIssueField = (issue: ValidationIssue): HTMLElement | null => {
+      const candidate = issue.focusTarget?.();
+      return candidate instanceof HTMLElement ? candidate : null;
+    };
+    const clearInvalidFields = (): void => {
+      queryAll<HTMLElement>(form, '[aria-invalid="true"]')
+        .forEach((element) => element.removeAttribute('aria-invalid'));
+    };
+    const markInvalidFields = (issues: readonly ValidationIssue[]): void => {
+      clearInvalidFields();
+      const seen = new Set<HTMLElement>();
+      issues.forEach((issue) => {
+        const field = resolveIssueField(issue);
+        if (!field || seen.has(field)) return;
+        field.setAttribute('aria-invalid', 'true');
+        seen.add(field);
+      });
+    };
+    const scrollIntoViewWithOffset = (element: HTMLElement): void => {
+      const top = element.getBoundingClientRect().top + window.scrollY - 24;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    };
+    const revealErrorState = (issues: readonly ValidationIssue[] = []): void => {
+      const firstField = issues
+        .map((issue) => resolveIssueField(issue))
+        .find((field): field is HTMLElement => field !== null);
+
+      scrollIntoViewWithOffset(errorBanner);
+      window.requestAnimationFrame(() => {
+        if (!firstField) {
+          errorBanner.focus({ preventScroll: true });
+          return;
+        }
+        firstField.focus({ preventScroll: true });
+        const { top, bottom } = firstField.getBoundingClientRect();
+        if (top < 96 || bottom > window.innerHeight - 24) {
+          scrollIntoViewWithOffset(firstField);
+        }
+      });
+    };
+    const getPresetFieldTarget = (id: SiteSocialPresetId, field: 'order' | 'href') => (): HTMLElement | null => {
+      const row = getPresetRows().find((currentRow) => getPresetRowId(currentRow) === id) ?? null;
+      return row ? query<HTMLElement>(row, `[data-social-preset-field="${field}"]`) : null;
+    };
+    const getCustomFieldTarget = (
+      index: number,
+      field: 'order' | 'iconKey' | 'id' | 'href'
+    ) => (): HTMLElement | null => {
+      const row = getCustomRows()[index] ?? null;
+      return row ? query<HTMLElement>(row, `[data-social-custom-field="${field}"]`) : null;
+    };
+    const getCustomVisibilityTarget = (index: number): (() => HTMLElement | null) => () => {
+      const row = getCustomRows()[index] ?? null;
+      return row ? query<HTMLElement>(row, '[data-social-custom-action="toggle-visible"]') : null;
+    };
+    const getNavFieldTarget = (
+      id: SidebarNavId,
+      field: 'label' | 'ornament' | 'order' | 'visible'
+    ): (() => HTMLElement | null) => () => {
+      const row = query<HTMLElement>(root, `[data-nav-id="${id}"]`);
+      return row ? query<HTMLElement>(row, `[data-nav-field="${field}"]`) : null;
+    };
+    const getFirstNavLabelTarget = (): (() => HTMLElement | null) => () => {
+      const firstNavId = ADMIN_NAV_IDS[0];
+      return firstNavId ? getNavFieldTarget(firstNavId, 'label')() : null;
+    };
+
+    const STATUS_WAITING_SAVE = '等待保存';
+    const STATUS_CLEAN = '当前配置无未保存更改';
 
     const setStatus = (state: string, message: string): void => {
-      statusEl.dataset.state = state;
-      statusEl.textContent = message;
+      statusTargets.forEach((target) => {
+        target.dataset.state = state;
+        target.textContent = message;
+      });
+    };
+    const syncDirtyStatus = (next: boolean): void => {
+      const currentState = statusEl.dataset.state;
+      const currentMessage = statusEl.textContent?.trim() || '';
+
+      if (next) {
+        if (currentState === 'ready' || currentState === 'ok') {
+          setStatus('ready', STATUS_WAITING_SAVE);
+        }
+        return;
+      }
+
+      if (currentState === 'ready' && currentMessage === STATUS_WAITING_SAVE) {
+        setStatus('ready', STATUS_CLEAN);
+      }
     };
 
     const setErrors = (errors: string[]): void => {
@@ -354,12 +485,19 @@ if (!root) {
     const setDirty = (next: boolean): void => {
       isDirty = next;
       dirtyBanner.hidden = !next;
+      adminActions.dataset.dirty = String(next);
+      adminActions.dataset.sticky = String(next && !isAdminActionsNearViewport);
+      syncDirtyStatus(next);
     };
 
     const setSaving = (next: boolean): void => {
       isSaving = next;
       saveBtn.disabled = next;
       saveBtn.textContent = next ? '保存中...' : '保存';
+    };
+    const setValidationIssues = (issues: readonly ValidationIssue[]): void => {
+      markInvalidFields(issues);
+      setErrors(issues.map((issue) => issue.message));
     };
 
     const getFooterPreviewText = (): string => {
@@ -374,6 +512,11 @@ if (!root) {
 
     const refreshFooterPreview = (): void => {
       footerPreviewValueEl.textContent = getFooterPreviewText().replace(/^页脚预览：/, '').trim();
+    };
+    const syncFooterYearControls = (): void => {
+      const footerYearRangeEl = inputSiteFooterShowCurrentYear.closest<HTMLElement>('.admin-year-range');
+      if (!footerYearRangeEl) return;
+      footerYearRangeEl.dataset.currentYearEnabled = String(Boolean(inputSiteFooterShowCurrentYear.checked));
     };
 
     const getSelectedSocialOption = (selectEl: HTMLSelectElement | null): HTMLOptionElement | null =>
@@ -686,6 +829,7 @@ if (!root) {
           return {
             id,
             label: normalizeTrimmed(record.label),
+            ornament: normalizeNavOrnament(record.ornament),
             order: parseOrder(record.order as string | number | null | undefined, ADMIN_NAV_IDS.indexOf(id) + 1),
             visible: Boolean(record.visible)
           };
@@ -705,6 +849,8 @@ if (!root) {
       const showIntroMore =
         typeof home.showIntroMore === 'boolean' ? home.showIntroMore : true;
       const introMoreLinks = normalizeHomeIntroLinks(home.introMoreLinks);
+      const rawUiLayout: LooseRecord = isRecord(ui.layout) ? ui.layout : {};
+      const rawSidebarDivider = normalizeTrimmed(rawUiLayout.sidebarDivider);
 
       return {
         site: {
@@ -775,6 +921,11 @@ if (!root) {
           },
           readingMode: {
             showEntry: Boolean(isRecord(ui.readingMode) ? ui.readingMode.showEntry : false)
+          },
+          layout: {
+            sidebarDivider: isAdminSidebarDividerVariant(rawSidebarDivider)
+              ? rawSidebarDivider
+              : ADMIN_SIDEBAR_DIVIDER_DEFAULT
           }
         }
       };
@@ -785,12 +936,14 @@ if (!root) {
         const idRaw = row.getAttribute('data-nav-id')?.trim() ?? '';
         const id = isAdminNavId(idRaw) ? idRaw : ADMIN_NAV_IDS[index] ?? 'essay';
         const labelInput = query<HTMLInputElement>(row, '[data-nav-field="label"]');
+        const ornamentInput = query<HTMLInputElement>(row, '[data-nav-field="ornament"]');
         const orderInput = query<HTMLInputElement>(row, '[data-nav-field="order"]');
         const visibleInput = query<HTMLInputElement>(row, '[data-nav-field="visible"]');
         const fallbackOrder = index + 1;
         return {
           id,
           label: labelInput?.value.trim() || '',
+          ornament: ornamentInput ? normalizeOptionalSingleLine(ornamentInput.value) : ADMIN_NAV_ORNAMENT_DEFAULT,
           order: parseOrder(orderInput?.value || '', fallbackOrder),
           visible: Boolean(visibleInput?.checked)
         };
@@ -843,7 +996,7 @@ if (!root) {
           introMoreLinks: collectHomeIntroLinks(),
           showIntroLead: Boolean(inputHomeShowIntroLead.checked),
           showIntroMore: Boolean(inputHomeShowIntroMore.checked),
-          heroPresetId: isAdminHeroPresetId(inputHeroPreset.value) ? inputHeroPreset.value : 'default',
+          heroPresetId: inputHomeShowHero.checked ? 'default' : 'none',
           heroImageSrc: normalizeHeroImageSrc(inputHeroImageSrc.value),
           heroImageAlt: normalizeHeroImageAlt(inputHeroImageAlt.value)
         },
@@ -879,6 +1032,9 @@ if (!root) {
           },
           readingMode: {
             showEntry: Boolean(inputReadingEntry.checked)
+          },
+          layout: {
+            sidebarDivider: getSelectedSidebarDividerVariant()
           }
         }
       };
@@ -935,12 +1091,14 @@ if (!root) {
       inputPageAboutSubtitle.value = settings.page.about?.subtitle || '';
       inputPageBitsAuthorName.value = settings.page.bits?.defaultAuthor?.name || '';
       inputPageBitsAuthorAvatar.value = settings.page.bits?.defaultAuthor?.avatar || '';
-      inputHeroPreset.value = settings.home.heroPresetId || 'default';
+      inputHomeShowHero.checked = (settings.home.heroPresetId || 'default') !== 'none';
       inputHeroImageSrc.value = settings.home.heroImageSrc || '';
       inputHeroImageAlt.value = settings.home.heroImageAlt || ADMIN_HERO_IMAGE_ALT_DEFAULT;
       syncHeroControls();
+      syncFooterYearControls();
       inputCodeLineNumbers.checked = Boolean(settings.ui?.codeBlock?.showLineNumbers);
       inputReadingEntry.checked = Boolean(settings.ui?.readingMode?.showEntry);
+      applySidebarDividerVariant(settings.ui?.layout?.sidebarDivider || ADMIN_SIDEBAR_DIVIDER_DEFAULT);
       refreshFooterPreview();
 
       const navMap = new Map<SidebarNavId, EditableNavItem>(settings.shell.nav.map((item) => [item.id, item]));
@@ -949,66 +1107,71 @@ if (!root) {
         const id = isAdminNavId(rawId) ? rawId : ADMIN_NAV_IDS[index] ?? 'essay';
         const current = navMap.get(id);
         const labelInput = query<HTMLInputElement>(row, '[data-nav-field="label"]');
+        const ornamentInput = query<HTMLInputElement>(row, '[data-nav-field="ornament"]');
         const orderInput = query<HTMLInputElement>(row, '[data-nav-field="order"]');
         const visibleInput = query<HTMLInputElement>(row, '[data-nav-field="visible"]');
         if (labelInput) labelInput.value = current?.label?.trim() || '';
+        if (ornamentInput) ornamentInput.value = current?.ornament ?? '';
         if (orderInput) orderInput.value = String(current?.order ?? (index + 1));
         if (visibleInput) visibleInput.checked = Boolean(current?.visible);
       });
     };
 
-    const validateSettings = (settings: EditableSettings): string[] => {
-      const errors: string[] = [];
+    const validateSettings = (settings: EditableSettings): ValidationIssue[] => {
+      const issues: ValidationIssue[] = [];
+      const pushIssue = (message: string, focusTarget?: () => HTMLElement | null): void => {
+        issues.push(createIssue(message, focusTarget));
+      };
 
-      if (!settings.site.title) errors.push('站点标题不能为空');
-      if (!settings.site.description) errors.push('站点描述不能为空');
+      if (!settings.site.title) pushIssue('站点标题不能为空', () => inputSiteTitle);
+      if (!settings.site.description) pushIssue('站点描述不能为空', () => inputSiteDescription);
       if (!settings.site.defaultLocale) {
-        errors.push('默认语言不能为空');
+        pushIssue('默认语言不能为空', () => inputSiteDefaultLocale);
       } else if (!ADMIN_LOCALE_RE.test(settings.site.defaultLocale)) {
-        errors.push('默认语言格式无效（示例：zh-CN）');
+        pushIssue('默认语言格式无效（示例：zh-CN）', () => inputSiteDefaultLocale);
       }
 
       if (!Number.isInteger(settings.site.footer?.startYear)) {
-        errors.push('页脚起始年份必须是整数');
+        pushIssue('页脚起始年份必须是整数', () => inputSiteFooterStartYear);
       } else if (
         settings.site.footer.startYear < ADMIN_FOOTER_START_YEAR_MIN ||
         settings.site.footer.startYear > footerStartYearMax
       ) {
-        errors.push('页脚起始年份超出允许范围');
+        pushIssue('页脚起始年份超出允许范围', () => inputSiteFooterStartYear);
       }
 
       if (typeof settings.site.footer?.showCurrentYear !== 'boolean') {
-        errors.push('是否显示当前年必须是布尔值');
+        pushIssue('是否显示当前年必须是布尔值', () => inputSiteFooterShowCurrentYear);
       }
 
       if (!settings.site.footer?.copyright) {
-        errors.push('页脚版权行不能为空');
+        pushIssue('页脚版权行不能为空', () => inputSiteFooterCopyright);
       } else if (
         settings.site.footer.copyright.includes('\n') ||
         settings.site.footer.copyright.includes('\r')
       ) {
-        errors.push('页脚版权行只允许单行文本');
+        pushIssue('页脚版权行只允许单行文本', () => inputSiteFooterCopyright);
       } else if (settings.site.footer.copyright.length > ADMIN_FOOTER_COPYRIGHT_MAX_LENGTH) {
-        errors.push(`页脚版权行不能超过 ${ADMIN_FOOTER_COPYRIGHT_MAX_LENGTH} 个字符`);
+        pushIssue(`页脚版权行不能超过 ${ADMIN_FOOTER_COPYRIGHT_MAX_LENGTH} 个字符`, () => inputSiteFooterCopyright);
       }
 
       if (
         settings.site.socialLinks?.github &&
         !isAdminAllowedHttpsUrl(settings.site.socialLinks.github, ADMIN_GITHUB_HOSTS)
       ) {
-        errors.push('GitHub 链接只允许 https://github.com/... ');
+        pushIssue('GitHub 链接只允许 https://github.com/... ', () => inputSiteSocialGithub);
       }
       if (
         settings.site.socialLinks?.x &&
         !isAdminAllowedHttpsUrl(settings.site.socialLinks.x, ADMIN_X_HOSTS)
       ) {
-        errors.push('X / Twitter 链接只允许 https://x.com/... 或 https://twitter.com/... ');
+        pushIssue('X / Twitter 链接只允许 https://x.com/... 或 https://twitter.com/... ', () => inputSiteSocialX);
       }
       if (
         settings.site.socialLinks?.email &&
         !ADMIN_EMAIL_RE.test(normalizeEmail(settings.site.socialLinks.email))
       ) {
-        errors.push('Email 必须是合法邮箱地址');
+        pushIssue('Email 必须是合法邮箱地址', () => inputSiteSocialEmail);
       }
 
       const presetOrder = settings.site.socialLinks?.presetOrder;
@@ -1017,18 +1180,18 @@ if (!root) {
         const order = presetOrder[id];
         const rowLabel = id === 'github' ? 'GitHub' : id === 'x' ? 'X / Twitter' : 'Email';
         if (!Number.isInteger(order) || order < 1 || order > 999) {
-          errors.push(`${rowLabel} 的位置排序必须为 1-999 的整数`);
+          pushIssue(`${rowLabel} 的位置排序必须为 1-999 的整数`, getPresetFieldTarget(id, 'order'));
           return;
         }
         if (seenPresetOrders.has(order)) {
-          errors.push(`固定平台位置排序不能重复：${order}`);
+          pushIssue(`固定平台位置排序不能重复：${order}`, getPresetFieldTarget(id, 'order'));
         }
         seenPresetOrders.add(order);
       });
 
       const customLinks = Array.isArray(settings.site.socialLinks?.custom) ? settings.site.socialLinks.custom : [];
       if (customLinks.length > ADMIN_SOCIAL_CUSTOM_LIMIT) {
-        errors.push(`自定义链接最多只能添加 ${ADMIN_SOCIAL_CUSTOM_LIMIT} 条`);
+        pushIssue(`自定义链接最多只能添加 ${ADMIN_SOCIAL_CUSTOM_LIMIT} 条`, () => socialCustomAddBtn);
       }
 
       const seenCustomIds = new Set<string>();
@@ -1036,79 +1199,79 @@ if (!root) {
       customLinks.forEach((item, index) => {
         const rowLabel = `自定义链接 #${index + 1}`;
         if (!item.id) {
-          errors.push(`${rowLabel} 的 ID 不能为空`);
+          pushIssue(`${rowLabel} 的 ID 不能为空`, getCustomFieldTarget(index, 'id'));
         } else {
           if (item.id.includes('\n') || item.id.includes('\r')) {
-            errors.push(`${rowLabel} 的 ID 只允许单行文本`);
+            pushIssue(`${rowLabel} 的 ID 只允许单行文本`, getCustomFieldTarget(index, 'id'));
           }
           if (seenCustomIds.has(item.id)) {
-            errors.push(`自定义链接 ID 重复：${item.id}`);
+            pushIssue(`自定义链接 ID 重复：${item.id}`, getCustomFieldTarget(index, 'id'));
           }
           seenCustomIds.add(item.id);
         }
 
         if (!item.label) {
-          errors.push(`${rowLabel} 的显示名称不能为空`);
+          pushIssue(`${rowLabel} 的显示名称不能为空`, getCustomFieldTarget(index, 'iconKey'));
         } else if (item.label.includes('\n') || item.label.includes('\r')) {
-          errors.push(`${rowLabel} 的显示名称只允许单行文本`);
+          pushIssue(`${rowLabel} 的显示名称只允许单行文本`, getCustomFieldTarget(index, 'iconKey'));
         }
 
         if (!item.href || !isAdminAllowedHttpsUrl(item.href)) {
-          errors.push(`${rowLabel} 的链接必须是合法 https:// 地址`);
+          pushIssue(`${rowLabel} 的链接必须是合法 https:// 地址`, getCustomFieldTarget(index, 'href'));
         }
         if (!isAdminSocialIconKey(item.iconKey)) {
-          errors.push(`${rowLabel} 的图标必须从白名单中选择`);
+          pushIssue(`${rowLabel} 的图标必须从白名单中选择`, getCustomFieldTarget(index, 'iconKey'));
         }
         if (!Number.isInteger(item.order) || item.order < 1) {
-          errors.push(`${rowLabel} 的位置排序必须是正整数`);
+          pushIssue(`${rowLabel} 的位置排序必须是正整数`, getCustomFieldTarget(index, 'order'));
         } else if (seenCustomOrders.has(item.order)) {
-          errors.push(`自定义链接位置排序不能重复：${item.order}`);
+          pushIssue(`自定义链接位置排序不能重复：${item.order}`, getCustomFieldTarget(index, 'order'));
         }
         seenCustomOrders.add(item.order);
         if (typeof item.visible !== 'boolean') {
-          errors.push(`${rowLabel} 的 visible 必须是布尔值`);
+          pushIssue(`${rowLabel} 的 visible 必须是布尔值`, getCustomVisibilityTarget(index));
         }
       });
 
-      if (!settings.shell.brandTitle) errors.push('侧栏站点名不能为空');
-      if (!settings.shell.quote) errors.push('侧栏引用文案不能为空');
+      if (!settings.shell.brandTitle) pushIssue('侧栏站点名不能为空', () => inputShellBrandTitle);
+      if (!settings.shell.quote) pushIssue('侧栏引用文案不能为空', () => inputShellQuote);
 
       if (!settings.home.introLead) {
-        errors.push('首页导语主文案不能为空');
+        pushIssue('首页导语主文案不能为空', () => inputHomeIntroLead);
       } else if (settings.home.introLead.length > ADMIN_HOME_INTRO_MAX_LENGTH) {
-        errors.push(`首页导语主文案不能超过 ${ADMIN_HOME_INTRO_MAX_LENGTH} 个字符`);
+        pushIssue(`首页导语主文案不能超过 ${ADMIN_HOME_INTRO_MAX_LENGTH} 个字符`, () => inputHomeIntroLead);
       }
 
       if (typeof settings.home.showIntroLead !== 'boolean') {
-        errors.push('首页导语主文案展示开关必须是布尔值');
+        pushIssue('首页导语主文案展示开关必须是布尔值', () => inputHomeShowIntroLead);
       }
 
       if (!settings.home.introMore) {
-        errors.push('首页导语补充文案不能为空');
+        pushIssue('首页导语补充文案不能为空', () => inputHomeIntroMore);
       } else if (settings.home.introMore.length > ADMIN_HOME_INTRO_MAX_LENGTH) {
-        errors.push(`首页导语补充文案不能超过 ${ADMIN_HOME_INTRO_MAX_LENGTH} 个字符`);
+        pushIssue(`首页导语补充文案不能超过 ${ADMIN_HOME_INTRO_MAX_LENGTH} 个字符`, () => inputHomeIntroMore);
       }
 
       if (typeof settings.home.showIntroMore !== 'boolean') {
-        errors.push('首页导语补充文案展示开关必须是布尔值');
+        pushIssue('首页导语补充文案展示开关必须是布尔值', () => inputHomeShowIntroMore);
       }
 
       if (!Array.isArray(settings.home.introMoreLinks)) {
-        errors.push('首页导语补充链接必须是数组');
+        pushIssue('首页导语补充链接必须是数组', () => inputHomeIntroMoreLinkPrimary);
       } else if (
         settings.home.introMoreLinks.length < 1 ||
         settings.home.introMoreLinks.length > ADMIN_HOME_INTRO_LINK_LIMIT
       ) {
-        errors.push(`首页导语补充链接必须选择 1-${ADMIN_HOME_INTRO_LINK_LIMIT} 个入口`);
+        pushIssue(`首页导语补充链接必须选择 1-${ADMIN_HOME_INTRO_LINK_LIMIT} 个入口`, () => inputHomeIntroMoreLinkPrimary);
       } else {
         const seenHomeIntroLinks = new Set<HomeIntroLinkKey>();
         settings.home.introMoreLinks.forEach((linkKey, index) => {
           if (!isAdminHomeIntroLinkKey(linkKey)) {
-            errors.push(`首页导语补充链接 #${index + 1} 非法：${String(linkKey)}`);
+            pushIssue(`首页导语补充链接 #${index + 1} 非法：${String(linkKey)}`, () => inputHomeIntroMoreLinkPrimary);
             return;
           }
           if (seenHomeIntroLinks.has(linkKey)) {
-            errors.push(`首页导语补充链接不能重复：${linkKey}`);
+            pushIssue(`首页导语补充链接不能重复：${linkKey}`, () => inputHomeIntroMoreLinkPrimary);
             return;
           }
           seenHomeIntroLinks.add(linkKey);
@@ -1116,109 +1279,152 @@ if (!root) {
       }
 
       if (!ADMIN_HERO_PRESET_SET.has(settings.home.heroPresetId)) {
-        errors.push('Hero 展示模式只允许 default/none');
+        pushIssue('Hero 展示模式只允许 default/none', () => inputHomeShowHero);
       }
 
       if (
         settings.home.heroImageSrc !== null &&
         normalizeAdminHeroImageSrc(settings.home.heroImageSrc) === undefined
       ) {
-        errors.push('Hero 图片地址只允许 src/assets/**、public/**（或 / 开头路径）以及 https:// 图片地址');
+        pushIssue(
+          'Hero 图片地址只允许 src/assets/**、public/**（或 / 开头路径）以及 https:// 图片地址',
+          () => inputHeroImageSrc
+        );
       }
 
       if (!settings.home.heroImageAlt) {
-        errors.push('Hero 图片说明不能为空');
+        pushIssue('Hero 图片说明不能为空', () => inputHeroImageAlt);
       } else if (
         settings.home.heroImageAlt.includes('\n') ||
         settings.home.heroImageAlt.includes('\r')
       ) {
-        errors.push('Hero 图片说明只允许单行文本');
+        pushIssue('Hero 图片说明只允许单行文本', () => inputHeroImageAlt);
       } else if (settings.home.heroImageAlt.length > ADMIN_HERO_IMAGE_ALT_MAX_LENGTH) {
-        errors.push(`Hero 图片说明不能超过 ${ADMIN_HERO_IMAGE_ALT_MAX_LENGTH} 个字符`);
+        pushIssue(`Hero 图片说明不能超过 ${ADMIN_HERO_IMAGE_ALT_MAX_LENGTH} 个字符`, () => inputHeroImageAlt);
       }
 
-      const pageTitleMap: Array<[string | null, string]> = [
-        [settings.page.essay?.title, '/essay/ 页面主标题'],
-        [settings.page.archive?.title, '/archive/ 页面主标题'],
-        [settings.page.bits?.title, '/bits/ 页面主标题'],
-        [settings.page.memo?.title, '/memo/ 页面主标题'],
-        [settings.page.about?.title, '/about/ 页面主标题']
+      const pageTitleMap: Array<[string | null, string, () => HTMLElement | null]> = [
+        [settings.page.essay?.title, '/essay/ 页面主标题', () => inputPageEssayTitle],
+        [settings.page.archive?.title, '/archive/ 页面主标题', () => inputPageArchiveTitle],
+        [settings.page.bits?.title, '/bits/ 页面主标题', () => inputPageBitsTitle],
+        [settings.page.memo?.title, '/memo/ 页面主标题', () => inputPageMemoTitle],
+        [settings.page.about?.title, '/about/ 页面主标题', () => inputPageAboutTitle]
       ];
 
-      pageTitleMap.forEach(([title, label]) => {
+      pageTitleMap.forEach(([title, label, focusTarget]) => {
         if (title == null) return;
         if (typeof title !== 'string') {
-          errors.push(`${label} 必须是字符串或留空`);
+          pushIssue(`${label} 必须是字符串或留空`, focusTarget);
           return;
         }
         if (title.includes('\n') || title.includes('\r')) {
-          errors.push(`${label} 只允许单行文本`);
+          pushIssue(`${label} 只允许单行文本`, focusTarget);
         }
         if (title.length > ADMIN_PAGE_TITLE_MAX_LENGTH) {
-          errors.push(`${label} 不能超过 ${ADMIN_PAGE_TITLE_MAX_LENGTH} 个字符`);
+          pushIssue(`${label} 不能超过 ${ADMIN_PAGE_TITLE_MAX_LENGTH} 个字符`, focusTarget);
         }
       });
 
-      const pageSubtitleMap: Array<[string | null, string]> = [
-        [settings.page.essay?.subtitle, '/essay/ 页面副标题'],
-        [settings.page.archive?.subtitle, '/archive/ 页面副标题'],
-        [settings.page.bits?.subtitle, '/bits/ 页面副标题'],
-        [settings.page.memo?.subtitle, '/memo/ 页面副标题'],
-        [settings.page.about?.subtitle, '/about/ 页面副标题']
+      const pageSubtitleMap: Array<[string | null, string, () => HTMLElement | null]> = [
+        [settings.page.essay?.subtitle, '/essay/ 页面副标题', () => inputPageEssaySubtitle],
+        [settings.page.archive?.subtitle, '/archive/ 页面副标题', () => inputPageArchiveSubtitle],
+        [settings.page.bits?.subtitle, '/bits/ 页面副标题', () => inputPageBitsSubtitle],
+        [settings.page.memo?.subtitle, '/memo/ 页面副标题', () => inputPageMemoSubtitle],
+        [settings.page.about?.subtitle, '/about/ 页面副标题', () => inputPageAboutSubtitle]
       ];
 
-      pageSubtitleMap.forEach(([subtitle, label]) => {
+      pageSubtitleMap.forEach(([subtitle, label, focusTarget]) => {
         if (subtitle == null) return;
         if (typeof subtitle !== 'string') {
-          errors.push(`${label} 必须是字符串或留空`);
+          pushIssue(`${label} 必须是字符串或留空`, focusTarget);
           return;
         }
         if (subtitle.includes('\n') || subtitle.includes('\r')) {
-          errors.push(`${label} 只允许单行文本`);
+          pushIssue(`${label} 只允许单行文本`, focusTarget);
         }
         if (subtitle.length > ADMIN_PAGE_SUBTITLE_MAX_LENGTH) {
-          errors.push(`${label} 不能超过 ${ADMIN_PAGE_SUBTITLE_MAX_LENGTH} 个字符`);
+          pushIssue(`${label} 不能超过 ${ADMIN_PAGE_SUBTITLE_MAX_LENGTH} 个字符`, focusTarget);
         }
       });
 
       if (!settings.page.bits?.defaultAuthor?.name) {
-        errors.push('Bits 默认作者名不能为空');
+        pushIssue('Bits 默认作者名不能为空', () => inputPageBitsAuthorName);
       }
       if (settings.page.bits?.defaultAuthor?.avatar) {
         if (settings.page.bits.defaultAuthor.avatar.startsWith('/')) {
-          errors.push('Bits 默认头像必须是相对路径，不要以 / 开头');
+          pushIssue('Bits 默认头像必须是相对路径，不要以 / 开头', () => inputPageBitsAuthorAvatar);
         }
         if (/^[A-Za-z]+:\/\//.test(settings.page.bits.defaultAuthor.avatar)) {
-          errors.push('Bits 默认头像当前仅允许相对路径，不允许 URL');
+          pushIssue('Bits 默认头像当前仅允许相对路径，不允许 URL', () => inputPageBitsAuthorAvatar);
         }
+      }
+
+      if (!isAdminSidebarDividerVariant(settings.ui?.layout?.sidebarDivider ?? '')) {
+        pushIssue('侧栏分隔线只允许 默认 / 弱化 / 隐藏', () => inputSidebarDividerDefault);
       }
 
       const nav = Array.isArray(settings.shell.nav) ? settings.shell.nav : [];
       if (nav.length !== ADMIN_NAV_IDS.length) {
-        errors.push('Sidebar 导航项数量必须与既有导航一致');
+        pushIssue('Sidebar 导航项数量必须与既有导航一致', getFirstNavLabelTarget());
       }
 
       const seenIds = new Set<SidebarNavId>();
       const seenOrders = new Set<number>();
       nav.forEach((item) => {
-        if (!isAdminNavId(item.id)) errors.push(`存在非法导航项 ID：${item.id}`);
-        if (seenIds.has(item.id)) errors.push(`导航项 ID 重复：${item.id}`);
-        seenIds.add(item.id);
+        const navId = isAdminNavId(item.id) ? item.id : null;
+        if (!navId) {
+          pushIssue(`存在非法导航项 ID：${item.id}`, getFirstNavLabelTarget());
+        } else if (seenIds.has(navId)) {
+          pushIssue(`导航项 ID 重复：${navId}`, getNavFieldTarget(navId, 'label'));
+        }
+        if (navId) seenIds.add(navId);
 
-        if (!item.label) errors.push(`导航项 ${item.id} 的显示名称不能为空`);
+        if (!item.label) {
+          pushIssue(
+            `导航项 ${item.id} 的显示名称不能为空`,
+            navId ? getNavFieldTarget(navId, 'label') : getFirstNavLabelTarget()
+          );
+        }
+        if (item.ornament !== null) {
+          if (typeof item.ornament !== 'string') {
+            pushIssue(
+              `导航项 ${item.id} 的点缀必须是字符串或留空`,
+              navId ? getNavFieldTarget(navId, 'ornament') : getFirstNavLabelTarget()
+            );
+          } else if (item.ornament.includes('\n') || item.ornament.includes('\r')) {
+            pushIssue(
+              `导航项 ${item.id} 的点缀只允许单行文本`,
+              navId ? getNavFieldTarget(navId, 'ornament') : getFirstNavLabelTarget()
+            );
+          } else if (item.ornament.length > ADMIN_NAV_ORNAMENT_MAX_LENGTH) {
+            pushIssue(
+              `导航项 ${item.id} 的点缀不能超过 ${ADMIN_NAV_ORNAMENT_MAX_LENGTH} 个字符`,
+              navId ? getNavFieldTarget(navId, 'ornament') : getFirstNavLabelTarget()
+            );
+          }
+        }
         if (!Number.isInteger(item.order) || item.order < 1 || item.order > 999) {
-          errors.push(`导航项 ${item.id} 的位置排序必须为 1-999 的整数`);
+          pushIssue(
+            `导航项 ${item.id} 的位置排序必须为 1-999 的整数`,
+            navId ? getNavFieldTarget(navId, 'order') : getFirstNavLabelTarget()
+          );
         }
         if (seenOrders.has(item.order)) {
-          errors.push(`位置排序不能重复：${item.order}`);
+          pushIssue(
+            `位置排序不能重复：${item.order}`,
+            navId ? getNavFieldTarget(navId, 'order') : getFirstNavLabelTarget()
+          );
         }
         seenOrders.add(item.order);
         if (typeof item.visible !== 'boolean') {
-          errors.push(`导航项 ${item.id} 的 visible 必须是布尔值`);
+          pushIssue(
+            `导航项 ${item.id} 的 visible 必须是布尔值`,
+            navId ? getNavFieldTarget(navId, 'visible') : getFirstNavLabelTarget()
+          );
         }
       });
 
-      return errors;
+      return issues;
     };
 
     const refreshDirty = (): void => {
@@ -1249,12 +1455,14 @@ if (!root) {
     const loadPayload = (payload: unknown, source: LoadSource): void => {
       const resolvedPayload = extractSettingsPayload(payload);
       if (!resolvedPayload) {
+        clearInvalidFields();
         setStatus('error', '返回数据格式无效');
         return;
       }
       const normalized = canonicalize(resolvedPayload.settings);
       applySettings(normalized);
       baseline = canonicalize(collectSettings());
+      clearInvalidFields();
       setErrors([]);
       setDirty(false);
       setStatus('ready', source === 'remote' ? '已同步最新配置' : '已载入初始配置');
@@ -1292,10 +1500,33 @@ if (!root) {
       }
     };
 
-    form.addEventListener('input', refreshDirty);
-    form.addEventListener('change', refreshDirty);
+    form.addEventListener('input', (event) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      ) {
+        target.removeAttribute('aria-invalid');
+      }
+      refreshDirty();
+    });
+    form.addEventListener('change', (event) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      ) {
+        target.removeAttribute('aria-invalid');
+      }
+      refreshDirty();
+    });
     inputSiteFooterStartYear.addEventListener('input', refreshFooterPreview);
-    inputSiteFooterShowCurrentYear.addEventListener('change', refreshFooterPreview);
+    inputSiteFooterShowCurrentYear.addEventListener('change', () => {
+      syncFooterYearControls();
+      refreshFooterPreview();
+    });
     inputSiteFooterCopyright.addEventListener('input', refreshFooterPreview);
     inputHomeIntroMore.addEventListener('input', refreshHomeIntroPreview);
     inputHomeShowIntroMore.addEventListener('change', refreshHomeIntroPreview);
@@ -1311,10 +1542,25 @@ if (!root) {
       syncHomeIntroLinkControls();
       refreshDirty();
     });
-    inputHeroPreset.addEventListener('change', () => {
+    inputHomeShowHero.addEventListener('change', () => {
       syncHeroControls();
       refreshDirty();
     });
+
+    if ('IntersectionObserver' in window) {
+      const adminActionsObserver = new IntersectionObserver(
+        (entries) => {
+          isAdminActionsNearViewport = entries.some((entry) => entry.isIntersecting);
+          adminActions.dataset.sticky = String(isDirty && !isAdminActionsNearViewport);
+        },
+        {
+          root: null,
+          threshold: 0,
+          rootMargin: '0px 0px -96px 0px'
+        }
+      );
+      adminActionsObserver.observe(adminActionsSentinel);
+    }
 
     socialCustomAddBtn.addEventListener('click', () => {
       if (getCustomRows().length >= ADMIN_SOCIAL_CUSTOM_LIMIT) {
@@ -1444,10 +1690,11 @@ if (!root) {
 
     validateBtn.addEventListener('click', () => {
       const current = canonicalize(collectSettings());
-      const errors = validateSettings(current);
-      setErrors(errors);
-      if (errors.length) {
+      const issues = validateSettings(current);
+      setValidationIssues(issues);
+      if (issues.length) {
         setStatus('error', '校验未通过');
+        revealErrorState(issues);
         return;
       }
       setStatus('ok', '校验通过，可直接保存');
@@ -1456,6 +1703,7 @@ if (!root) {
     resetBtn.addEventListener('click', () => {
       if (!baseline) return;
       applySettings(deepClone(baseline));
+      clearInvalidFields();
       setErrors([]);
       setDirty(false);
       setStatus('ready', '已重置为最近一次加载值');
@@ -1464,10 +1712,11 @@ if (!root) {
     saveBtn.addEventListener('click', async () => {
       if (isSaving) return;
       const current = canonicalize(collectSettings());
-      const errors = validateSettings(current);
-      setErrors(errors);
-      if (errors.length) {
+      const issues = validateSettings(current);
+      setValidationIssues(issues);
+      if (issues.length) {
         setStatus('error', '保存前校验失败');
+        revealErrorState(issues);
         return;
       }
 
@@ -1477,8 +1726,10 @@ if (!root) {
       try {
         const requestBody = JSON.stringify(current);
         if (!requestBody) {
+          clearInvalidFields();
           setErrors(['保存请求体为空，请刷新页面后重试']);
           setStatus('error', '保存失败');
+          revealErrorState();
           return;
         }
 
@@ -1494,6 +1745,7 @@ if (!root) {
 
         const payload = (await response.json().catch(() => null)) as unknown;
         if (!response.ok || !isRecord(payload) || payload.ok !== true) {
+          clearInvalidFields();
           const serverErrors = getPayloadErrors(payload);
           setErrors(serverErrors.length ? serverErrors : ['保存失败，请稍后重试']);
           if (response.status === 404) {
@@ -1501,22 +1753,26 @@ if (!root) {
           } else {
             setStatus('error', '保存失败');
           }
+          revealErrorState();
           return;
         }
 
         if (extractSettingsPayload(payload)) {
           loadPayload(payload, 'remote');
-          setStatus('ok', '保存成功，已刷新最新配置');
+          setStatus('ok', '保存成功，请刷新目标页面查看效果');
         } else {
           baseline = current;
           setDirty(false);
           setStatus('ok', '保存成功');
         }
+        clearInvalidFields();
         setErrors([]);
       } catch (error) {
         console.error(error);
+        clearInvalidFields();
         setErrors(['保存请求失败，请检查本地服务日志']);
         setStatus('error', '保存失败');
+        revealErrorState();
       } finally {
         setSaving(false);
       }

@@ -2,6 +2,7 @@ import type {
   HeroPresetId,
   HomeIntroLinkKey,
   PageId,
+  SidebarDividerVariant,
   SidebarNavId,
   SiteSocialIconKey,
   SiteSocialPresetId
@@ -14,6 +15,22 @@ export const ADMIN_HERO_PRESETS = ['default', 'none'] as const satisfies readonl
 export const ADMIN_HERO_PRESET_SET: ReadonlySet<HeroPresetId> = new Set(ADMIN_HERO_PRESETS);
 export const ADMIN_HERO_IMAGE_ALT_DEFAULT = 'Whono theme preview';
 export const ADMIN_HERO_IMAGE_ALT_MAX_LENGTH = 120;
+
+export const ADMIN_SIDEBAR_DIVIDER_VARIANTS = [
+  'default',
+  'subtle',
+  'none'
+] as const satisfies readonly SidebarDividerVariant[];
+export const ADMIN_SIDEBAR_DIVIDER_DEFAULT: SidebarDividerVariant = 'default';
+export const ADMIN_SIDEBAR_DIVIDER_SET: ReadonlySet<SidebarDividerVariant> = new Set(ADMIN_SIDEBAR_DIVIDER_VARIANTS);
+export const ADMIN_SIDEBAR_DIVIDER_OPTIONS = [
+  { id: 'default', label: '默认' },
+  { id: 'subtle', label: '弱化' },
+  { id: 'none', label: '隐藏' }
+] as const satisfies readonly {
+  id: SidebarDividerVariant;
+  label: string;
+}[];
 
 export const ADMIN_HOME_INTRO_LINK_KEYS = [
   'archive',
@@ -68,6 +85,8 @@ export const ADMIN_X_HOSTS = ['x.com', 'twitter.com'] as const;
 export const ADMIN_HOME_INTRO_MAX_LENGTH = 240;
 export const ADMIN_PAGE_TITLE_MAX_LENGTH = 60;
 export const ADMIN_PAGE_SUBTITLE_MAX_LENGTH = 120;
+export const ADMIN_NAV_ORNAMENT_DEFAULT = '·';
+export const ADMIN_NAV_ORNAMENT_MAX_LENGTH = 4;
 export const ADMIN_FOOTER_START_YEAR_MIN = 1900;
 export const ADMIN_FOOTER_COPYRIGHT_MAX_LENGTH = 120;
 export const ADMIN_SOCIAL_CUSTOM_LIMIT = 8;
@@ -83,6 +102,9 @@ export const isAdminNavId = (value: string): value is SidebarNavId =>
 
 export const isAdminHeroPresetId = (value: string): value is HeroPresetId =>
   ADMIN_HERO_PRESET_SET.has(value as HeroPresetId);
+
+export const isAdminSidebarDividerVariant = (value: string): value is SidebarDividerVariant =>
+  ADMIN_SIDEBAR_DIVIDER_SET.has(value as SidebarDividerVariant);
 
 export const isAdminHomeIntroLinkKey = (value: string): value is HomeIntroLinkKey =>
   ADMIN_HOME_INTRO_LINK_KEY_SET.has(value as HomeIntroLinkKey);

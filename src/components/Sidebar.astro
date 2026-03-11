@@ -1,5 +1,6 @@
 ---
 import Icon from './Icon.astro';
+import { ADMIN_NAV_ORNAMENT_DEFAULT } from '../lib/admin-console/shared';
 import { createWithBase } from '../utils/format';
 import { getSidebarHref, getThemeSettings } from '../lib/theme-settings';
 
@@ -16,6 +17,7 @@ const nav = settings.shell.nav
   .sort((a, b) => a.order - b.order)
   .map((item) => ({
     label: item.label,
+    ornament: item.ornament,
     href: withBase(getSidebarHref(item.id))
   }));
 const showReaderToggle = settings.ui.readingMode.showEntry;
@@ -39,7 +41,11 @@ const showReaderToggle = settings.ui.readingMode.showEntry;
         <li>
           <a href={item.href} aria-current={isActive ? 'page' : undefined}>
             <span>{item.label}</span>
-            <span class="dot" aria-hidden="true"></span>
+            {item.ornament === ADMIN_NAV_ORNAMENT_DEFAULT ? (
+              <span class="dot" aria-hidden="true"></span>
+            ) : item.ornament ? (
+              <span class="nav-ornament" aria-hidden="true">{item.ornament}</span>
+            ) : null}
           </a>
         </li>
       );

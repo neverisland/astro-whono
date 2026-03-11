@@ -301,6 +301,10 @@ hr {
   margin-top: 16px;
 }
 
+.home--no-hero .intro {
+  margin-top: 4px;
+}
+
 .intro__lead {
   display: block;
   font-size: 15px;
@@ -342,6 +346,10 @@ hr {
 
 .home--no-intro .section-title--index {
   margin-top: 24px;
+}
+
+.home--compact-start .section-title--index {
+  margin-top: 0;
 }
 
 .about-page .intro + .section-title {
@@ -764,6 +772,10 @@ hr {
     margin-top: 18px;
   }
 
+  .home--compact-start .section-title--index {
+    margin-top: 4px;
+  }
+
   .site-guide {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -812,6 +824,10 @@ hr {
 
   .home--no-intro .section-title--index {
     margin-top: 16px;
+  }
+
+  .home--compact-start .section-title--index {
+    margin-top: 2px;
   }
 
   .hero {

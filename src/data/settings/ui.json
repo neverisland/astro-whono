@@ -4,5 +4,8 @@
   },
   "readingMode": {
     "showEntry": true
+  },
+  "layout": {
+    "sidebarDivider": "default"
   }
 }

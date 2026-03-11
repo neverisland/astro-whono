@@ -27,13 +27,44 @@
     gap: 8px;
   }
 
+  .admin-hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-hero-grid__copy,
+  .admin-hero-grid__heading,
+  .admin-hero-grid__input--primary,
+  .admin-hero-grid__input--secondary {
+    grid-column: auto;
+  }
+
+  .admin-hero-grid__toggle {
+    grid-column: auto;
+    grid-row: auto;
+    justify-self: flex-start;
+  }
+
+  .admin-hero-grid__input {
+    width: 100% !important;
+  }
+
   .admin-inline-builder__text,
   .admin-inline-builder__select {
     flex: 1 1 100%;
     width: 100% !important;
   }
 
-  .admin-inline-builder__bridge {
+  .admin-inline-builder__select-group,
+  .admin-inline-builder__secondary {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .admin-inline-builder__divider {
+    display: none;
+  }
+
+  .admin-inline-builder__toggle {
     justify-content: flex-start;
     width: max-content;
     max-width: 100%;
@@ -47,10 +78,49 @@
     align-items: flex-start;
   }
 
+  .admin-actions[data-sticky='true'] {
+    position: static;
+    left: auto;
+    bottom: auto;
+    width: auto;
+    margin-top: auto;
+    padding: 24px 0 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .admin-actions__meta {
+    width: 100%;
+  }
+
+  .admin-status--inline {
+    max-width: none;
+  }
+
   .admin-actions__buttons {
     width: 100%;
     margin-left: 0;
     justify-content: flex-end;
+  }
+
+  .admin-actions[data-sticky='true'] .admin-actions__buttons {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 24;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: linear-gradient(180deg, var(--bg) 0%, var(--code-content-bg) 100%);
+    box-shadow: 0 20px 40px -34px var(--overlay-35);
+  }
+
+  .admin-actions[data-sticky='true'] .admin-actions__buttons .admin-btn {
+    flex: 1 1 0;
   }
 
   .admin-social-panel__head {
@@ -134,6 +204,26 @@
   }
 
   .admin-nav-id {
+    order: 0;
+  }
+
+  .admin-nav-field--order {
+    order: 1;
+  }
+
+  .admin-nav-field--name {
+    order: 2;
+  }
+
+  .admin-nav-field--ornament {
+    order: 3;
+  }
+
+  .admin-toggle {
+    order: 4;
+  }
+
+  .admin-nav-id {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
@@ -159,6 +249,7 @@
   }
 
   .admin-nav-field--name input,
+  .admin-nav-field--ornament input,
   .admin-nav-field--order input {
     margin-inline: 0;
   }

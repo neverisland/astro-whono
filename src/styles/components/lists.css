@@ -9,6 +9,10 @@
   margin-top: 16px;
 }
 
+.home--compact-start .list {
+  margin-top: 10px;
+}
+
 .page-header.page-header--with-search {
   align-items: flex-start;
   justify-content: space-between;
