@@ -7,6 +7,24 @@ The format is based on Keep a Changelog, and this project aims to follow Semanti
 
 ## [Unreleased]
 
+
+## Added
+- `/archive/` 与 `/essay/` 列表页新增“标签”入口，可打开标签选择器并进入对应栏目的标签结果页。
+- 新增静态标签路由：`/archive/tag/{key}/` 与 `/essay/tag/{key}/`，并支持分页浏览。
+- 首页导语配置新增“标签”入口，可从首页直接进入归档页并使用标签筛选。
+
+## Changed
+- 列表搜索现支持与静态标签结果页叠加使用，便于查找同一标签下的相关文章。
+- 归档页在搜索过滤时会自动隐藏无结果的年份分组，减少空白干扰。
+- `/archive/` 与 `/essay/` 的列表页、标签页和分页页补充了更明确的页面描述，便于搜索引擎与分享场景识别当前页面内容。
+
+## Fixed
+- 修复 `/archive/` 与 `/essay/` 页面中的“标签”入口在关闭 JavaScript 时不可用的问题；当前会回退显示页面内标签列表，仍可直接进入静态标签结果页。
+- 修复标签结果页中多标签文章可能显示错误标签的问题；当前列表项会优先展示正在浏览的标签。
+
+## Notes
+- 标签浏览依附现有 `/archive/` 与 `/essay/` 页面，不新增独立的 Tags 导航页。
+
 ## [0.2.0] - 2026-03-13
 本次更新聚焦本地 Theme Console，方便 fork 或 clone 后更快接管站点配置。
 

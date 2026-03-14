@@ -240,8 +240,13 @@
   font-weight: normal;
 }
 
-.page-header .page-subtitle a {
-  color: var(--accent);
+.page-header .page-subtitle .page-subtitle__link {
+  color: currentColor;
+}
+
+.page-header .page-subtitle .page-subtitle__link:hover,
+.page-header .page-subtitle .page-subtitle__link:focus-visible {
+  color: var(--text);
 }
 
 .page-subtitle {

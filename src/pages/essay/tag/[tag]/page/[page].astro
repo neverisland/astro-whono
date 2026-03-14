@@ -1,0 +1,53 @@
+---
+import EssayPageView from '../../../../../components/EssayPageView.astro';
+import { getPageSlice, getTotalPages, getVisibleEssays } from '../../../../../lib/content';
+import { collectTagSummary, filterEntriesByTag, findTagSummary, getTagPath } from '../../../../../lib/tags';
+import { PAGE_SIZE_ESSAY } from '../../../../../../site.config.mjs';
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const visibleEssays = await getVisibleEssays();
+  const tagSummaries = collectTagSummary(visibleEssays);
+  const paths: Array<{ params: { page: string; tag: string } }> = [];
+
+  for (const tagSummary of tagSummaries) {
+    const totalPages = getTotalPages(tagSummary.count, PAGE_SIZE_ESSAY);
+    for (let page = 2; page <= totalPages; page += 1) {
+      paths.push({
+        params: {
+          tag: tagSummary.key,
+          page: String(page)
+        }
+      });
+    }
+  }
+
+  return paths;
+}
+
+const currentPage = Number(Astro.params.page);
+const visibleEssays = await getVisibleEssays();
+const tagSummaries = collectTagSummary(visibleEssays);
+const currentTag = findTagSummary(tagSummaries, Astro.params.tag ?? '');
+
+if (!currentTag) {
+  throw new Error(`Unknown essay tag: ${Astro.params.tag ?? ''}`);
+}
+
+const filteredEssays = filterEntriesByTag(visibleEssays, currentTag.key);
+const totalPages = getTotalPages(filteredEssays.length, PAGE_SIZE_ESSAY);
+const pageEssays = getPageSlice(filteredEssays, currentPage, PAGE_SIZE_ESSAY);
+---
+
+<EssayPageView
+  items={pageEssays}
+  resultCount={filteredEssays.length}
+  currentPage={currentPage}
+  totalPages={totalPages}
+  currentPath={getTagPath('essay', currentTag.key, currentPage)}
+  prevPath={currentPage === 2 ? getTagPath('essay', currentTag.key) : getTagPath('essay', currentTag.key, currentPage - 1)}
+  nextPath={currentPage < totalPages ? getTagPath('essay', currentTag.key, currentPage + 1) : null}
+  tagSummaries={tagSummaries}
+  currentTag={currentTag}
+/>

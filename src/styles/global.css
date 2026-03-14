@@ -8,6 +8,7 @@
    断点变量覆盖仅保留共享层变量与跨页面公共规则。 */
 @import "./components/layout.css";
 @import "./components/lists.css";
+@import "./components/entry-tags.css";
 
 @font-face {
   font-family: "LXGW WenKai Lite";

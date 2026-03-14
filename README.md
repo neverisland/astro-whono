@@ -125,7 +125,7 @@ npm run build && npm run preview
 astro-whono 内置本地 Theme Console，用于开发环境中可视化配置主题，在fork 或 clone 项目后，无需熟悉整个项目结构即可快速完成站点接管。
 
 <details>
-<summary><strong>Theme Console 预览</strong></summary>
+<summary><strong>🎛️ Theme Console 预览</strong></summary>
 
 <br>
 

@@ -125,7 +125,7 @@ If execution policy blocks `npm.ps1`, use one of the following:
 astro-whono includes a local Theme Console for visually configuring the theme during development. After forking or cloning the project, you can take over site-level settings without first learning the entire codebase structure.
 
 <details>
-<summary><strong>Theme Console Preview</strong></summary>
+<summary><strong>🎛️ Theme Console Preview</strong></summary>
 
 <br>
 

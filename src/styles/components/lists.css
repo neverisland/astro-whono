@@ -292,6 +292,7 @@
   grid-row: 1;
   color: var(--faint);
   font-size: 13px;
+  font-family: "LXGW WenKai Lite", "Kaiti SC", "STKaiti", serif;
 }
 
 .archive-date-full {

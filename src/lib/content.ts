@@ -47,19 +47,48 @@ export type EssayEntry = CollectionEntry<'essay'>;
 export const getEssaySlug = (entry: EssayEntry) => entry.data.slug ?? entry.id;
 
 const orderByEssayDate = (a: EssayEntry, b: EssayEntry) => b.data.date.valueOf() - a.data.date.valueOf();
+const shouldMemoizeEssayQueries = import.meta.env.PROD;
 
-export async function getSortedEssays() {
-  return getPublished('essay', {
+let sortedEssaysPromise: Promise<EssayEntry[]> | null = null;
+let visibleEssaysPromise: Promise<EssayEntry[]> | null = null;
+let archiveEssaysPromise: Promise<EssayEntry[]> | null = null;
+
+const cloneEssayEntries = (entries: readonly EssayEntry[]) => entries.slice();
+
+const loadSortedEssays = () =>
+  getPublished('essay', {
     orderBy: orderByEssayDate
   });
+
+export async function getSortedEssays() {
+  if (!shouldMemoizeEssayQueries) {
+    return loadSortedEssays();
+  }
+
+  sortedEssaysPromise ??= loadSortedEssays();
+  return cloneEssayEntries(await sortedEssaysPromise);
 }
 
 export async function getVisibleEssays() {
-  const essays = await getSortedEssays();
-  return essays.filter((entry) => !isReservedSlug(getEssaySlug(entry)));
+  if (!shouldMemoizeEssayQueries) {
+    const essays = await getSortedEssays();
+    return essays.filter((entry) => !isReservedSlug(getEssaySlug(entry)));
+  }
+
+  visibleEssaysPromise ??= getSortedEssays().then((essays) =>
+    essays.filter((entry) => !isReservedSlug(getEssaySlug(entry)))
+  );
+  return cloneEssayEntries(await visibleEssaysPromise);
 }
 
 export async function getArchiveEssays() {
-  const essays = await getSortedEssays();
-  return essays.filter((entry) => entry.data.archive !== false && !isReservedSlug(getEssaySlug(entry)));
+  if (!shouldMemoizeEssayQueries) {
+    const essays = await getSortedEssays();
+    return essays.filter((entry) => entry.data.archive !== false && !isReservedSlug(getEssaySlug(entry)));
+  }
+
+  archiveEssaysPromise ??= getSortedEssays().then((essays) =>
+    essays.filter((entry) => entry.data.archive !== false && !isReservedSlug(getEssaySlug(entry)))
+  );
+  return cloneEssayEntries(await archiveEssaysPromise);
 }
