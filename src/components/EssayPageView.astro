@@ -3,7 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import TagFilterHeader from './TagFilterHeader.astro';
 import EssayCard from './EssayCard.astro';
 import { createWithBase, getEssaySlug, type EssayEntry } from '../lib/content';
-import { getThemeSettings } from '../lib/theme-settings';
+import { getThemeSettings, getVisibleArticleMetaTags } from '../lib/theme-settings';
 import { getListExcerpt } from '../utils/excerpt';
 import { joinPageSubtitleText } from '../utils/format';
 
@@ -27,7 +27,8 @@ const base = import.meta.env.BASE_URL ?? '/';
 const withBase = createWithBase(base);
 const {
   settings: {
-    page
+    page,
+    ui: { articleMeta }
   }
 } = getThemeSettings();
 
@@ -74,7 +75,8 @@ const fallbackListId = 'essay-tag-list';
         title={entry.data.title}
         excerpt={getListExcerpt(entry)}
         date={entry.data.date}
-        tag={entry.data.tags?.[0]}
+        visibleTags={getVisibleArticleMetaTags(entry.data.tags, 'list')}
+        articleMetaSettings={articleMeta}
         badge={entry.data.badge}
       />
     ))}

@@ -3,6 +3,7 @@ import { render } from 'astro:content';
 import { getEssaySlug, getVisibleEssayRouteEntries } from '../../lib/content';
 import ArticleLayout from '../../layouts/ArticleLayout.astro';
 import { createWithBase } from '../../utils/format';
+import { getThemeSettings, getVisibleArticleMetaTags } from '../../lib/theme-settings';
 
 export const prerender = true;
 
@@ -28,6 +29,15 @@ export async function getStaticPaths() {
 
 const { entry, prev, next } = Astro.props;
 const { Content } = await render(entry);
+const articleMetaSettings = getThemeSettings().settings.ui.articleMeta;
+const visibleTags = getVisibleArticleMetaTags(entry.data.tags, 'detail');
 ---
 
-<ArticleLayout entry={entry} Content={Content} prev={prev} next={next} />
+<ArticleLayout
+  entry={entry}
+  Content={Content}
+  prev={prev}
+  next={next}
+  articleMetaSettings={articleMetaSettings}
+  visibleTags={visibleTags}
+/>

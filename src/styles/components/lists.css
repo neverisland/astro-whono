@@ -384,6 +384,27 @@
   color: var(--faint);
 }
 
+.meta-line--items {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.meta-line__item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.meta-line__item--tags {
+  gap: 0.65em;
+}
+
+.meta-line__item + .meta-line__item::before {
+  content: "·";
+  margin: 0 0.45em;
+  color: var(--faint);
+}
+
 .list-item .meta-line {
   margin-top: 12px;
   margin-bottom: 8px;
@@ -451,6 +472,10 @@
 }
 
 @media (max-width: 640px) {
+  .meta-line__item--desktop-meta {
+    display: none;
+  }
+
   .entry-search {
     position: relative;
   }

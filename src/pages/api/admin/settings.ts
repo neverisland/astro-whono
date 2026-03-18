@@ -14,6 +14,7 @@ import {
   type ThemeSettings
 } from '../../../lib/theme-settings';
 import {
+  ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH,
   ADMIN_SOCIAL_ORDER_MAX,
   ADMIN_SOCIAL_ORDER_MIN,
   ADMIN_EMAIL_RE,
@@ -102,12 +103,19 @@ const HOME_KEYS = [
   'heroImageAlt'
 ] as const;
 const PAGE_KEYS = ['essay', 'archive', 'bits', 'memo', 'about'] as const;
-const UI_KEYS = ['codeBlock', 'readingMode', 'layout'] as const;
+const UI_KEYS = ['codeBlock', 'readingMode', 'articleMeta', 'layout'] as const;
 const FOOTER_KEYS = ['startYear', 'showCurrentYear', 'copyright'] as const;
 const SOCIAL_LINK_KEYS = ['github', 'x', 'email', 'presetOrder', 'custom'] as const;
 const SOCIAL_CUSTOM_ITEM_KEYS = ['id', 'label', 'href', 'iconKey', 'visible', 'order'] as const;
 const CODE_BLOCK_KEYS = ['showLineNumbers'] as const;
 const READING_MODE_KEYS = ['showEntry'] as const;
+const ARTICLE_META_KEYS = [
+  'showDate',
+  'dateLabel',
+  'showTags',
+  'showWordCount',
+  'showReadingTime'
+] as const;
 const LAYOUT_KEYS = ['sidebarDivider'] as const;
 const NAV_ITEM_KEYS = ['id', 'label', 'ornament', 'visible', 'order'] as const;
 const PAGE_HEADING_KEYS = ['title', 'subtitle'] as const;
@@ -127,6 +135,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const toTrimmedString = (value: unknown): string | undefined =>
   typeof value === 'string' ? value.trim() : undefined;
+
+const toSingleLineTrimmedString = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.includes('\n') || trimmed.includes('\r') ? undefined : trimmed;
+};
 
 const toNullableTrimmedString = (value: unknown): string | null | undefined => {
   if (value === null) return null;
@@ -966,6 +980,7 @@ const parsePatch = (
       const nextUi = {
         codeBlock: { ...current.ui.codeBlock },
         readingMode: { ...current.ui.readingMode },
+        articleMeta: { ...current.ui.articleMeta },
         layout: {
           sidebarDivider: current.ui.layout.sidebarDivider ?? ADMIN_SIDEBAR_DIVIDER_DEFAULT
         }
@@ -995,6 +1010,45 @@ const parsePatch = (
             const value = toBoolean(rawReadingMode.showEntry);
             if (value === undefined) errors.push('ui.readingMode.showEntry 必须是布尔值');
             else nextUi.readingMode.showEntry = value;
+          }
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(rawUi, 'articleMeta')) {
+        const rawArticleMeta = rawUi.articleMeta;
+        if (!isRecord(rawArticleMeta)) {
+          errors.push('ui.articleMeta 必须是对象');
+        } else {
+          collectUnknownKeys('ui.articleMeta', rawArticleMeta, ARTICLE_META_KEYS, errors);
+          if (Object.prototype.hasOwnProperty.call(rawArticleMeta, 'showDate')) {
+            const value = toBoolean(rawArticleMeta.showDate);
+            if (value === undefined) errors.push('ui.articleMeta.showDate 必须是布尔值');
+            else nextUi.articleMeta.showDate = value;
+          }
+          if (Object.prototype.hasOwnProperty.call(rawArticleMeta, 'dateLabel')) {
+            const value = toSingleLineTrimmedString(rawArticleMeta.dateLabel);
+            if (value === undefined) {
+              errors.push('ui.articleMeta.dateLabel 必须是单行字符串');
+            } else if (value.length > ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH) {
+              errors.push(`ui.articleMeta.dateLabel 不能超过 ${ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH} 个字符`);
+            } else {
+              nextUi.articleMeta.dateLabel = value;
+            }
+          }
+          if (Object.prototype.hasOwnProperty.call(rawArticleMeta, 'showTags')) {
+            const value = toBoolean(rawArticleMeta.showTags);
+            if (value === undefined) errors.push('ui.articleMeta.showTags 必须是布尔值');
+            else nextUi.articleMeta.showTags = value;
+          }
+          if (Object.prototype.hasOwnProperty.call(rawArticleMeta, 'showWordCount')) {
+            const value = toBoolean(rawArticleMeta.showWordCount);
+            if (value === undefined) errors.push('ui.articleMeta.showWordCount 必须是布尔值');
+            else nextUi.articleMeta.showWordCount = value;
+          }
+          if (Object.prototype.hasOwnProperty.call(rawArticleMeta, 'showReadingTime')) {
+            const value = toBoolean(rawArticleMeta.showReadingTime);
+            if (value === undefined) errors.push('ui.articleMeta.showReadingTime 必须是布尔值');
+            else nextUi.articleMeta.showReadingTime = value;
           }
         }
       }

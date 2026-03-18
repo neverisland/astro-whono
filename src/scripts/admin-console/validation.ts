@@ -4,6 +4,7 @@ import type {
   SiteSocialPresetId
 } from '@/lib/theme-settings';
 import {
+  ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH,
   ADMIN_EMAIL_RE,
   ADMIN_FOOTER_COPYRIGHT_MAX_LENGTH,
   ADMIN_FOOTER_START_YEAR_MIN,
@@ -74,6 +75,11 @@ type ValidationContext = {
   inputPageBitsSubtitle: HTMLInputElement;
   inputPageMemoSubtitle: HTMLInputElement;
   inputPageAboutSubtitle: HTMLInputElement;
+  inputArticleMetaShowDate: HTMLInputElement;
+  inputArticleMetaDateLabel: HTMLInputElement;
+  inputArticleMetaShowTags: HTMLInputElement;
+  inputArticleMetaShowWordCount: HTMLInputElement;
+  inputArticleMetaShowReadingTime: HTMLInputElement;
   inputPageBitsAuthorName: HTMLInputElement;
   inputPageBitsAuthorAvatar: HTMLInputElement;
   inputSidebarDividerDefault: HTMLInputElement;
@@ -124,6 +130,11 @@ export const createValidation = ({
   inputPageBitsSubtitle,
   inputPageMemoSubtitle,
   inputPageAboutSubtitle,
+  inputArticleMetaShowDate,
+  inputArticleMetaDateLabel,
+  inputArticleMetaShowTags,
+  inputArticleMetaShowWordCount,
+  inputArticleMetaShowReadingTime,
   inputPageBitsAuthorName,
   inputPageBitsAuthorAvatar,
   inputSidebarDividerDefault,
@@ -425,6 +436,36 @@ export const createValidation = ({
           () => inputPageBitsAuthorAvatar
         );
       }
+    }
+
+    if (typeof settings.ui?.articleMeta?.showDate !== 'boolean') {
+      pushIssue('文章元信息里的“显示发布日期”必须是布尔值', () => inputArticleMetaShowDate);
+    }
+
+    if (typeof settings.ui?.articleMeta?.dateLabel !== 'string') {
+      pushIssue('文章元信息里的“日期前缀”必须是字符串', () => inputArticleMetaDateLabel);
+    } else if (
+      settings.ui.articleMeta.dateLabel.includes('\n') ||
+      settings.ui.articleMeta.dateLabel.includes('\r')
+    ) {
+      pushIssue('文章元信息里的“日期前缀”只允许单行文本', () => inputArticleMetaDateLabel);
+    } else if (settings.ui.articleMeta.dateLabel.length > ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH) {
+      pushIssue(
+        `文章元信息里的“日期前缀”不能超过 ${ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH} 个字符`,
+        () => inputArticleMetaDateLabel
+      );
+    }
+
+    if (typeof settings.ui?.articleMeta?.showTags !== 'boolean') {
+      pushIssue('文章元信息里的“显示标签”必须是布尔值', () => inputArticleMetaShowTags);
+    }
+
+    if (typeof settings.ui?.articleMeta?.showWordCount !== 'boolean') {
+      pushIssue('文章元信息里的“显示字数”必须是布尔值', () => inputArticleMetaShowWordCount);
+    }
+
+    if (typeof settings.ui?.articleMeta?.showReadingTime !== 'boolean') {
+      pushIssue('文章元信息里的“显示阅读时长”必须是布尔值', () => inputArticleMetaShowReadingTime);
     }
 
     if (!isAdminSidebarDividerVariant(settings.ui?.layout?.sidebarDivider ?? '')) {

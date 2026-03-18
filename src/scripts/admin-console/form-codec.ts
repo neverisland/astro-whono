@@ -7,6 +7,8 @@ import type {
   ThemeSettingsEditablePayload
 } from '@/lib/theme-settings';
 import {
+  ADMIN_ARTICLE_META_DATE_LABEL_DEFAULT,
+  ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH,
   ADMIN_HERO_IMAGE_ALT_DEFAULT,
   ADMIN_HOME_INTRO_LINK_DEFAULT,
   ADMIN_HOME_INTRO_LINK_LIMIT,
@@ -42,6 +44,7 @@ type FormCodecContext = {
   replaceCustomRows: (items: EditableCustomSocialItem[]) => void;
   normalizeSocialOrders: () => void;
   getPresetSocialOrder: () => SocialPresetOrder;
+  articleMetaPreviewValueEl: HTMLElement;
   footerPreviewValueEl: HTMLElement;
   homeIntroMorePreviewEl: HTMLElement;
   homeIntroMoreLinkSecondaryGroupEl: HTMLElement;
@@ -76,6 +79,11 @@ type FormCodecContext = {
   inputPageMemoSubtitle: HTMLInputElement;
   inputPageAboutTitle: HTMLInputElement;
   inputPageAboutSubtitle: HTMLInputElement;
+  inputArticleMetaShowDate: HTMLInputElement;
+  inputArticleMetaDateLabel: HTMLInputElement;
+  inputArticleMetaShowTags: HTMLInputElement;
+  inputArticleMetaShowWordCount: HTMLInputElement;
+  inputArticleMetaShowReadingTime: HTMLInputElement;
   inputPageBitsAuthorName: HTMLInputElement;
   inputPageBitsAuthorAvatar: HTMLInputElement;
   inputHomeShowHero: HTMLInputElement;
@@ -96,6 +104,12 @@ const normalizeMultiline = (value: string): string => value.replace(/\r\n/g, '\n
 const normalizeOptionalSingleLine = (value: string): string | null => {
   const normalized = normalizeMultiline(value).trim();
   return normalized || null;
+};
+
+const normalizeSingleLine = (value: unknown, fallback = ''): string => {
+  if (typeof value !== 'string') return fallback;
+  const normalized = normalizeMultiline(value).trim();
+  return normalized.includes('\n') ? fallback : normalized;
 };
 
 const normalizeNavOrnament = (value: unknown): string | null => {
@@ -141,6 +155,7 @@ export const createFormCodec = ({
   replaceCustomRows,
   normalizeSocialOrders,
   getPresetSocialOrder,
+  articleMetaPreviewValueEl,
   footerPreviewValueEl,
   homeIntroMorePreviewEl,
   homeIntroMoreLinkSecondaryGroupEl,
@@ -175,6 +190,11 @@ export const createFormCodec = ({
   inputPageMemoSubtitle,
   inputPageAboutTitle,
   inputPageAboutSubtitle,
+  inputArticleMetaShowDate,
+  inputArticleMetaDateLabel,
+  inputArticleMetaShowTags,
+  inputArticleMetaShowWordCount,
+  inputArticleMetaShowReadingTime,
   inputPageBitsAuthorName,
   inputPageBitsAuthorAvatar,
   inputHomeShowHero,
@@ -256,6 +276,39 @@ export const createFormCodec = ({
 
   const refreshHomeIntroPreview = (): void => {
     homeIntroMorePreviewEl.textContent = getHomeIntroPreviewText();
+  };
+
+  const ARTICLE_META_PREVIEW_DATE = '2026-03-18';
+  const ARTICLE_META_PREVIEW_TAGS = ['#Astro', '#写作'] as const;
+  const ARTICLE_META_PREVIEW_WORD_COUNT = '共 2,416 字';
+  const ARTICLE_META_PREVIEW_READING_TIME = '约 6 分钟';
+  const ARTICLE_META_PREVIEW_EMPTY = '当前不显示文章元信息';
+
+  const getArticleMetaPreviewText = (): string => {
+    const segments: string[] = [];
+
+    if (inputArticleMetaShowDate.checked) {
+      const dateLabel = normalizeSingleLine(inputArticleMetaDateLabel.value);
+      segments.push(`${dateLabel}${ARTICLE_META_PREVIEW_DATE}`);
+    }
+
+    if (inputArticleMetaShowTags.checked) {
+      segments.push(ARTICLE_META_PREVIEW_TAGS.join('\u00A0\u00A0'));
+    }
+
+    if (inputArticleMetaShowWordCount.checked) {
+      segments.push(ARTICLE_META_PREVIEW_WORD_COUNT);
+    }
+
+    if (inputArticleMetaShowReadingTime.checked) {
+      segments.push(ARTICLE_META_PREVIEW_READING_TIME);
+    }
+
+    return segments.length ? segments.join(' · ') : ARTICLE_META_PREVIEW_EMPTY;
+  };
+
+  const refreshArticleMetaPreview = (): void => {
+    articleMetaPreviewValueEl.textContent = getArticleMetaPreviewText();
   };
 
   const syncHomeIntroLinkControls = (): void => {
@@ -383,6 +436,7 @@ export const createFormCodec = ({
     const showIntroMore =
       typeof home.showIntroMore === 'boolean' ? home.showIntroMore : true;
     const introMoreLinks = normalizeHomeIntroLinks(home.introMoreLinks);
+    const rawUiArticleMeta: LooseRecord = isRecord(ui.articleMeta) ? ui.articleMeta : {};
     const rawUiLayout: LooseRecord = isRecord(ui.layout) ? ui.layout : {};
     const rawSidebarDivider = normalizeTrimmed(rawUiLayout.sidebarDivider);
 
@@ -464,6 +518,26 @@ export const createFormCodec = ({
         },
         readingMode: {
           showEntry: Boolean(isRecord(ui.readingMode) ? ui.readingMode.showEntry : false)
+        },
+        articleMeta: {
+          showDate: typeof rawUiArticleMeta.showDate === 'boolean'
+            ? rawUiArticleMeta.showDate
+            : true,
+          dateLabel: (() => {
+            const normalized = normalizeSingleLine(rawUiArticleMeta.dateLabel, ADMIN_ARTICLE_META_DATE_LABEL_DEFAULT);
+            return normalized.length <= ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH
+              ? normalized
+              : ADMIN_ARTICLE_META_DATE_LABEL_DEFAULT;
+          })(),
+          showTags: typeof rawUiArticleMeta.showTags === 'boolean'
+            ? rawUiArticleMeta.showTags
+            : true,
+          showWordCount: typeof rawUiArticleMeta.showWordCount === 'boolean'
+            ? rawUiArticleMeta.showWordCount
+            : true,
+          showReadingTime: typeof rawUiArticleMeta.showReadingTime === 'boolean'
+            ? rawUiArticleMeta.showReadingTime
+            : true
         },
         layout: {
           sidebarDivider: isAdminSidebarDividerVariant(rawSidebarDivider)
@@ -576,6 +650,13 @@ export const createFormCodec = ({
         readingMode: {
           showEntry: Boolean(inputReadingEntry.checked)
         },
+        articleMeta: {
+          showDate: Boolean(inputArticleMetaShowDate.checked),
+          dateLabel: normalizeSingleLine(inputArticleMetaDateLabel.value),
+          showTags: Boolean(inputArticleMetaShowTags.checked),
+          showWordCount: Boolean(inputArticleMetaShowWordCount.checked),
+          showReadingTime: Boolean(inputArticleMetaShowReadingTime.checked)
+        },
         layout: {
           sidebarDivider: getSelectedSidebarDividerVariant()
         }
@@ -637,8 +718,14 @@ export const createFormCodec = ({
     syncFooterYearControls();
     inputCodeLineNumbers.checked = Boolean(settings.ui?.codeBlock?.showLineNumbers);
     inputReadingEntry.checked = Boolean(settings.ui?.readingMode?.showEntry);
+    inputArticleMetaShowDate.checked = settings.ui?.articleMeta?.showDate !== false;
+    inputArticleMetaDateLabel.value = settings.ui?.articleMeta?.dateLabel ?? ADMIN_ARTICLE_META_DATE_LABEL_DEFAULT;
+    inputArticleMetaShowTags.checked = settings.ui?.articleMeta?.showTags !== false;
+    inputArticleMetaShowWordCount.checked = settings.ui?.articleMeta?.showWordCount !== false;
+    inputArticleMetaShowReadingTime.checked = settings.ui?.articleMeta?.showReadingTime !== false;
     applySidebarDividerVariant(settings.ui?.layout?.sidebarDivider || ADMIN_SIDEBAR_DIVIDER_DEFAULT);
     refreshFooterPreview();
+    refreshArticleMetaPreview();
 
     const navMap = new Map<SidebarNavId, EditableNavItem>(settings.shell.nav.map((item) => [item.id, item]));
     getNavRows().forEach((row, index) => {
@@ -661,6 +748,7 @@ export const createFormCodec = ({
     collectSettings,
     applySettings,
     collectHomeIntroLinks,
+    refreshArticleMetaPreview,
     refreshHomeIntroPreview,
     syncHomeIntroLinkControls,
     syncHeroControls,

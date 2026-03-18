@@ -18,6 +18,9 @@ export const ADMIN_HERO_PRESET_SET: ReadonlySet<HeroPresetId> = new Set(ADMIN_HE
 export const ADMIN_HERO_IMAGE_ALT_DEFAULT = 'Whono theme preview';
 export const ADMIN_HERO_IMAGE_ALT_MAX_LENGTH = 120;
 
+export const ADMIN_ARTICLE_META_DATE_LABEL_DEFAULT = '发布于：';
+export const ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH = 20;
+
 export const ADMIN_SIDEBAR_DIVIDER_VARIANTS = [
   'default',
   'subtle',

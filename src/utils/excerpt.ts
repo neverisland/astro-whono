@@ -5,6 +5,11 @@ export type DerivedMarkdownText = {
   excerptText: string;
 };
 
+export type ArticleReadingStats = {
+  wordCount: number;
+  readingMinutes: number;
+};
+
 export function splitMore(md: string): string {
   if (!md) return '';
   const match = md.match(MORE_REGEX);
@@ -54,6 +59,15 @@ export function deriveMarkdownText(md: string): DerivedMarkdownText {
   return {
     plainText,
     excerptText: excerptMarkdown === md ? plainText : cleanMarkdownToText(excerptMarkdown)
+  };
+}
+
+export function getArticleReadingStats(md: string): ArticleReadingStats {
+  const { plainText } = deriveMarkdownText(md);
+  const wordCount = plainText.replace(/\s+/g, '').length;
+  return {
+    wordCount,
+    readingMinutes: Math.max(1, Math.ceil(wordCount / 320))
   };
 }
 

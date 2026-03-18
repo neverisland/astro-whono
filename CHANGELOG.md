@@ -12,6 +12,7 @@ The format is based on Keep a Changelog, and this project aims to follow Semanti
 ### Added
 - `/archive/` 新增标签入口，并提供可分页的静态标签结果页。
 - 首页导语支持直接进入标签浏览；`/bits/` 新增年份筛选，并优化搜索结果展示。
+- Theme Console 新增文章元信息显示选项，可控制文章详情页是否显示字数与阅读时长。
 
 ### Changed
 - 列表搜索现可与归档标签页联动，归档页无结果的年份分组会自动收起。

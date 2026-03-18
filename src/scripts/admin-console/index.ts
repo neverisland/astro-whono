@@ -66,6 +66,7 @@ if (!root) {
     resetBtn: byId<HTMLButtonElement>('admin-reset'),
     saveBtn: byId<HTMLButtonElement>('admin-save'),
     bootstrapEl: byId<HTMLScriptElement>('admin-bootstrap'),
+    articleMetaPreviewValueEl: byId<HTMLElement>('article-meta-preview-value'),
     footerPreviewValueEl: byId<HTMLElement>('site-footer-preview-value'),
     socialCustomList: byId<HTMLElement>('site-social-custom-list'),
     socialCustomHead: byId<HTMLElement>('site-social-custom-head'),
@@ -105,6 +106,11 @@ if (!root) {
     inputPageMemoSubtitle: byId<HTMLInputElement>('page-memo-subtitle'),
     inputPageAboutTitle: byId<HTMLInputElement>('page-about-title'),
     inputPageAboutSubtitle: byId<HTMLInputElement>('page-about-subtitle'),
+    inputArticleMetaShowDate: byId<HTMLInputElement>('ui-article-meta-show-date'),
+    inputArticleMetaDateLabel: byId<HTMLInputElement>('ui-article-meta-date-label'),
+    inputArticleMetaShowTags: byId<HTMLInputElement>('ui-article-meta-show-tags'),
+    inputArticleMetaShowWordCount: byId<HTMLInputElement>('ui-article-meta-show-word-count'),
+    inputArticleMetaShowReadingTime: byId<HTMLInputElement>('ui-article-meta-show-reading-time'),
     inputPageBitsAuthorName: byId<HTMLInputElement>('page-bits-author-name'),
     inputPageBitsAuthorAvatar: byId<HTMLInputElement>('page-bits-author-avatar'),
     inputHomeShowHero: byId<HTMLInputElement>('home-show-hero'),
@@ -137,6 +143,7 @@ if (!root) {
       resetBtn,
       saveBtn,
       bootstrapEl,
+      articleMetaPreviewValueEl,
       footerPreviewValueEl,
       socialCustomList,
       socialCustomHead,
@@ -176,6 +183,11 @@ if (!root) {
       inputPageMemoSubtitle,
       inputPageAboutTitle,
       inputPageAboutSubtitle,
+      inputArticleMetaShowDate,
+      inputArticleMetaDateLabel,
+      inputArticleMetaShowTags,
+      inputArticleMetaShowWordCount,
+      inputArticleMetaShowReadingTime,
       inputPageBitsAuthorName,
       inputPageBitsAuthorAvatar,
       inputHomeShowHero,
@@ -231,6 +243,7 @@ if (!root) {
       canonicalize,
       collectSettings,
       applySettings,
+      refreshArticleMetaPreview,
       refreshHomeIntroPreview,
       syncHomeIntroLinkControls,
       syncHeroControls,
@@ -247,6 +260,7 @@ if (!root) {
       replaceCustomRows,
       normalizeSocialOrders,
       getPresetSocialOrder,
+      articleMetaPreviewValueEl,
       footerPreviewValueEl,
       homeIntroMorePreviewEl,
       homeIntroMoreLinkSecondaryGroupEl,
@@ -281,6 +295,11 @@ if (!root) {
       inputPageMemoSubtitle,
       inputPageAboutTitle,
       inputPageAboutSubtitle,
+      inputArticleMetaShowDate,
+      inputArticleMetaDateLabel,
+      inputArticleMetaShowTags,
+      inputArticleMetaShowWordCount,
+      inputArticleMetaShowReadingTime,
       inputPageBitsAuthorName,
       inputPageBitsAuthorAvatar,
       inputHomeShowHero,
@@ -353,6 +372,11 @@ if (!root) {
       inputPageBitsSubtitle,
       inputPageMemoSubtitle,
       inputPageAboutSubtitle,
+      inputArticleMetaShowDate,
+      inputArticleMetaDateLabel,
+      inputArticleMetaShowTags,
+      inputArticleMetaShowWordCount,
+      inputArticleMetaShowReadingTime,
       inputPageBitsAuthorName,
       inputPageBitsAuthorAvatar,
       inputSidebarDividerDefault,
@@ -764,6 +788,11 @@ if (!root) {
       refreshFooterPreview();
     });
     inputSiteFooterCopyright.addEventListener('input', refreshFooterPreview);
+    inputArticleMetaDateLabel.addEventListener('input', refreshArticleMetaPreview);
+    inputArticleMetaShowDate.addEventListener('change', refreshArticleMetaPreview);
+    inputArticleMetaShowTags.addEventListener('change', refreshArticleMetaPreview);
+    inputArticleMetaShowWordCount.addEventListener('change', refreshArticleMetaPreview);
+    inputArticleMetaShowReadingTime.addEventListener('change', refreshArticleMetaPreview);
     inputHomeIntroMore.addEventListener('input', refreshHomeIntroPreview);
     inputHomeShowIntroMore.addEventListener('change', refreshHomeIntroPreview);
     inputHomeIntroMoreLinkPrimary.addEventListener('change', () => {

@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { site as legacySite } from '../../site.config.mjs';
 import {
+  ADMIN_ARTICLE_META_DATE_LABEL_DEFAULT,
+  ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH,
   ADMIN_HERO_IMAGE_ALT_DEFAULT,
   ADMIN_HERO_IMAGE_ALT_MAX_LENGTH,
   ADMIN_HOME_INTRO_LINK_DEFAULT,
@@ -141,6 +143,16 @@ export interface PageSettings {
   about: PageHeadingSettings;
 }
 
+export interface ArticleMetaSettings {
+  showDate: boolean;
+  dateLabel: string;
+  showTags: boolean;
+  showWordCount: boolean;
+  showReadingTime: boolean;
+}
+
+export type ArticleMetaDisplayContext = 'home' | 'list' | 'detail';
+
 export interface UiSettings {
   codeBlock: {
     showLineNumbers: boolean;
@@ -148,6 +160,7 @@ export interface UiSettings {
   readingMode: {
     showEntry: boolean;
   };
+  articleMeta: ArticleMetaSettings;
   layout: {
     sidebarDivider: SidebarDividerVariant;
   };
@@ -209,9 +222,20 @@ export interface ThemeSettingsSources {
   ui: {
     codeBlockShowLineNumbers: SettingSource;
     readingModeShowEntry: SettingSource;
+    articleMetaShowDate: SettingSource;
+    articleMetaDateLabel: SettingSource;
+    articleMetaShowTags: SettingSource;
+    articleMetaShowWordCount: SettingSource;
+    articleMetaShowReadingTime: SettingSource;
     layoutSidebarDivider: SettingSource;
   };
 }
+
+const ARTICLE_META_TAG_LIMITS: Record<ArticleMetaDisplayContext, number> = {
+  home: 1,
+  list: 3,
+  detail: 3
+};
 
 export interface ThemeSettingsResolved {
   settings: ThemeSettings;
@@ -410,6 +434,13 @@ const DEFAULT_UI: UiSettings = {
   readingMode: {
     showEntry: true
   },
+  articleMeta: {
+    showDate: true,
+    dateLabel: ADMIN_ARTICLE_META_DATE_LABEL_DEFAULT,
+    showTags: true,
+    showWordCount: true,
+    showReadingTime: true
+  },
   layout: {
     sidebarDivider: ADMIN_SIDEBAR_DIVIDER_DEFAULT
   }
@@ -460,6 +491,14 @@ const asLocale = (value: unknown): string | undefined => {
 const asSingleLineString = (value: unknown, maxLength?: number): string | undefined => {
   const next = asNonEmptyString(value);
   if (!next) return undefined;
+  if (next.includes('\n') || next.includes('\r')) return undefined;
+  if (typeof maxLength === 'number' && next.length > maxLength) return undefined;
+  return next;
+};
+
+const asTrimmedSingleLineString = (value: unknown, maxLength?: number): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const next = value.trim();
   if (next.includes('\n') || next.includes('\r')) return undefined;
   if (typeof maxLength === 'number' && next.length > maxLength) return undefined;
   return next;
@@ -584,6 +623,18 @@ const asHomeIntroLinkKey = (value: unknown): HomeIntroLinkKey | undefined => {
 
 const asSocialIconKey = (value: unknown): SiteSocialIconKey | undefined => {
   return normalizeAdminSocialIconKey(value);
+};
+
+export const getVisibleArticleMetaTags = (
+  tags: readonly string[] | null | undefined,
+  context: ArticleMetaDisplayContext
+): string[] => {
+  if (!Array.isArray(tags)) return [];
+
+  return tags
+    .map((tag) => (typeof tag === 'string' ? tag.trim() : ''))
+    .filter((tag): tag is string => Boolean(tag))
+    .slice(0, ARTICLE_META_TAG_LIMITS[context]);
 };
 
 const resolveValue = <T>(
@@ -1045,6 +1096,7 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
 
   const uiCodeBlock = isRecord(uiJson?.codeBlock) ? uiJson.codeBlock : undefined;
   const uiReadingMode = isRecord(uiJson?.readingMode) ? uiJson.readingMode : undefined;
+  const uiArticleMeta = isRecord(uiJson?.articleMeta) ? uiJson.articleMeta : undefined;
   const uiLayout = isRecord(uiJson?.layout) ? uiJson.layout : undefined;
 
   const showLineNumbers = resolveValue(
@@ -1056,6 +1108,31 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
     asBoolean(uiReadingMode?.showEntry),
     DEFAULT_UI.readingMode.showEntry,
     DEFAULT_UI.readingMode.showEntry
+  );
+  const showArticleDate = resolveValue(
+    asBoolean(uiArticleMeta?.showDate),
+    undefined,
+    DEFAULT_UI.articleMeta.showDate
+  );
+  const articleDateLabel = resolveValue(
+    asTrimmedSingleLineString(uiArticleMeta?.dateLabel, ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH),
+    undefined,
+    DEFAULT_UI.articleMeta.dateLabel
+  );
+  const showArticleTags = resolveValue(
+    asBoolean(uiArticleMeta?.showTags),
+    undefined,
+    DEFAULT_UI.articleMeta.showTags
+  );
+  const showArticleWordCount = resolveValue(
+    asBoolean(uiArticleMeta?.showWordCount),
+    undefined,
+    DEFAULT_UI.articleMeta.showWordCount
+  );
+  const showArticleReadingTime = resolveValue(
+    asBoolean(uiArticleMeta?.showReadingTime),
+    undefined,
+    DEFAULT_UI.articleMeta.showReadingTime
   );
   const sidebarDivider = resolveValue(
     asSidebarDividerVariant(uiLayout?.sidebarDivider),
@@ -1147,6 +1224,13 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
         readingMode: {
           showEntry: showReadingEntry.value
         },
+        articleMeta: {
+          showDate: showArticleDate.value,
+          dateLabel: articleDateLabel.value,
+          showTags: showArticleTags.value,
+          showWordCount: showArticleWordCount.value,
+          showReadingTime: showArticleReadingTime.value
+        },
         layout: {
           sidebarDivider: sidebarDivider.value
         }
@@ -1200,6 +1284,11 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
       ui: {
         codeBlockShowLineNumbers: showLineNumbers.source,
         readingModeShowEntry: showReadingEntry.source,
+        articleMetaShowDate: showArticleDate.source,
+        articleMetaDateLabel: articleDateLabel.source,
+        articleMetaShowTags: showArticleTags.source,
+        articleMetaShowWordCount: showArticleWordCount.source,
+        articleMetaShowReadingTime: showArticleReadingTime.source,
         layoutSidebarDivider: sidebarDivider.source
       }
     }
@@ -1257,6 +1346,7 @@ export const toEditableThemeSettingsPayload = (
     ui: {
       codeBlock: { ...resolved.settings.ui.codeBlock },
       readingMode: { ...resolved.settings.ui.readingMode },
+      articleMeta: { ...resolved.settings.ui.articleMeta },
       layout: { ...resolved.settings.ui.layout }
     }
   },

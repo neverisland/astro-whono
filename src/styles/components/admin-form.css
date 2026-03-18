@@ -534,6 +534,10 @@
   line-height: 1.6;
 }
 
+.admin-help--article-meta-preview {
+  margin-top: 8px;
+}
+
 .admin-help code {
   color: var(--muted);
   font-size: 13px;
@@ -991,6 +995,71 @@
   gap: 8px;
   min-height: 36px;
   font-size: 14px;
+}
+
+.admin-toggle-row--compact {
+  min-height: 0;
+}
+
+.admin-toggle-row--with-inline-field {
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+.admin-toggle-row__sep {
+  color: var(--faint);
+}
+
+.admin-toggle-row-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+}
+
+.admin-toggle-row-group--article-meta {
+  flex-wrap: nowrap;
+  gap: 8px 24px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.admin-inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.admin-inline-field__input {
+  width: 92px;
+  min-width: 92px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 4px 8px;
+  font: inherit;
+  font-family: "LXGW WenKai Lite", "Kaiti SC", "STKaiti", serif;
+  font-size: 13px;
+  line-height: 1.2;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.admin-inline-field__input:hover {
+  border-color: var(--faint);
+}
+
+.admin-inline-field__input:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px var(--panel);
 }
 
 .admin-actions {
