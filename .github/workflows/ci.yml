@@ -39,7 +39,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Security audit (prod dependencies)
+      - name: Security audit gate (high+ prod dependencies)
         run: npm run audit:prod
 
       - name: Run CI
@@ -153,6 +153,7 @@ jobs:
           const archiveRssXml = readFileSync('dist/archive/rss.xml', 'utf8');
           const essayRssXml = readFileSync('dist/essay/rss.xml', 'utf8');
           const sitemapXml = readFileSync('dist/sitemap-0.xml', 'utf8');
+          const sitemapLocs = Array.from(sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/g), (match) => match[1].trim()).filter(Boolean);
 
           const defaultRssLinks = getRssItemLinks(defaultRssXml);
           const archiveRssLinks = getRssItemLinks(archiveRssXml);
@@ -178,6 +179,16 @@ jobs:
           expect(
             sitemapXml.includes(`<loc>${sampleArchiveLink}</loc>`),
             `Sitemap is missing archive detail link: ${sampleArchiveLink}`
+          );
+          expect(
+            !sitemapLocs.includes(`${process.env.SITE_URL}/bits/draft-dialog/`),
+            'Bits draft partial route leaked into sitemap'
+          );
+
+          const leakedEssayDetail = sitemapLocs.find((loc) => /^\/essay\/[^/]+\/$/.test(new URL(loc).pathname));
+          expect(
+            !leakedEssayDetail,
+            `Essay compatibility redirect leaked into sitemap: ${leakedEssayDetail}`
           );
 
           const sampleArchiveHtmlPath = normalizeArchiveDetailPath(sampleArchiveLink);

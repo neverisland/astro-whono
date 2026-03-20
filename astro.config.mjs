@@ -14,20 +14,36 @@ const getSchemaAttrs = (tagName) => {
 };
 
 const mergeAttrs = (...lists) => Array.from(new Set(lists.flat()));
+const SITEMAP_ROUTE_ROOTS = new Set(['about', 'admin', 'archive', 'bits', 'checks', 'essay', 'memo']);
 
-const isExcludedSitemapEntry = (page) => {
+const normalizeSitemapPathname = (page) => {
+  let pathname = '/';
+
   try {
-    const pathname = new URL(page).pathname;
-    return pathname === '/admin/' || pathname === '/admin' || pathname === '/checks/' || pathname.startsWith('/checks/');
+    pathname = new URL(page).pathname;
   } catch {
-    return (
-      page.endsWith('/admin/')
-      || page.endsWith('/admin')
-      || page.endsWith('/checks/')
-      || page.includes('/checks/')
-    );
+    [pathname = '/'] = page.split(/[?#]/, 1);
   }
+
+  const normalizedPathname = pathname.replace(/\/+$/, '') || '/';
+  const segments = normalizedPathname.split('/').filter(Boolean);
+  const routeRootIndex = segments.findIndex((segment) => SITEMAP_ROUTE_ROOTS.has(segment));
+
+  if (routeRootIndex > 0) {
+    return `/${segments.slice(routeRootIndex).join('/')}`;
+  }
+
+  return normalizedPathname;
 };
+
+const isExcludedSitemapPathname = (pathname) =>
+  pathname === '/admin'
+  || pathname === '/checks'
+  || pathname.startsWith('/checks/')
+  || pathname === '/bits/draft-dialog'
+  || /^\/essay\/[^/]+$/.test(pathname);
+
+const isExcludedSitemapEntry = (page) => isExcludedSitemapPathname(normalizeSitemapPathname(page));
 
 const sanitizeSchema = {
   ...defaultSchema,
