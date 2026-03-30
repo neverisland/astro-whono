@@ -46,19 +46,19 @@ pre:is(.astro-code, .shiki) span[style*="--shiki-light"] {
   background: var(--code-content-bg);
 }
 
-/* 行号（仅正文 .prose，默认开启，可通过 data-line-numbers="off" 关闭） */
-.prose pre:is(.astro-code, .shiki):not([data-line-numbers="off"]) {
+/* 行号（仅正文 .prose，默认开启，可通过 body[data-code-line-numbers="off"] 关闭） */
+.prose pre:is(.astro-code, .shiki) {
   counter-reset: line;
   --ln-width: 2.5ch;
   --ln-gap: 3ch;
   --code-pad-x: 16px;
 }
 
-.prose pre:is(.astro-code, .shiki):has(.line):not([data-line-numbers="off"]) {
+.prose pre:is(.astro-code, .shiki):has(.line) {
   padding-left: 0;
 }
 
-.prose pre:is(.astro-code, .shiki):not([data-line-numbers="off"]) .line {
+.prose pre:is(.astro-code, .shiki) .line {
   display: inline-block;
   width: 100%;
   vertical-align: top;
@@ -66,7 +66,7 @@ pre:is(.astro-code, .shiki) span[style*="--shiki-light"] {
   padding-left: var(--code-pad-x);
 }
 
-.prose pre:is(.astro-code, .shiki):not([data-line-numbers="off"]) .line::before {
+.prose pre:is(.astro-code, .shiki) .line::before {
   counter-increment: line;
   content: counter(line);
   position: static;
@@ -85,16 +85,16 @@ pre:is(.astro-code, .shiki) span[style*="--shiki-light"] {
   pointer-events: none;
 }
 
-.prose pre:is(.astro-code, .shiki)[data-line-numbers="off"] .line::before {
+body[data-code-line-numbers="off"] .prose pre:is(.astro-code, .shiki) .line::before {
   content: none;
 }
 
-.prose pre:is(.astro-code, .shiki)[data-line-numbers="off"] .line {
+body[data-code-line-numbers="off"] .prose pre:is(.astro-code, .shiki) .line {
   padding-left: 0;
 }
 
 @supports (color: color-mix(in oklab, black, white)) {
-  .prose pre:is(.astro-code, .shiki):not([data-line-numbers="off"]) .line::before {
+  .prose pre:is(.astro-code, .shiki) .line::before {
     color: color-mix(in oklab, var(--muted) 70%, var(--code-content-bg));
     opacity: 1;
   }

@@ -8,6 +8,7 @@
    断点变量覆盖仅保留共享层变量与跨页面公共规则。 */
 @import "./components/layout.css";
 @import "./components/lists.css";
+@import "./components/entry-tags.css";
 
 @font-face {
   font-family: "LXGW WenKai Lite";
@@ -167,6 +168,11 @@ body {
   font-size: 16px;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 time,
 .page-meta,
 .list-item__meta,
@@ -203,10 +209,14 @@ img {
 a {
   color: var(--text);
   text-decoration: none;
+}
+
+/* 仅将无类名链接视为默认文本链接；组件化链接自行定义 hover/focus 表现。 */
+a:where(:not([class])) {
   border-bottom: 1px solid transparent;
 }
 
-a:hover {
+a:where(:not([class])):hover {
   border-bottom-color: currentColor;
 }
 

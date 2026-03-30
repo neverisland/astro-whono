@@ -1,5 +1,5 @@
 import rss from '@astrojs/rss';
-import { getPublished, isReservedSlug } from '../../lib/content';
+import { getArchiveEssays, getEssaySlug } from '../../lib/content';
 import { createWithBase } from '../../utils/format';
 import { getThemeSettings } from '../../lib/theme-settings';
 
@@ -8,14 +8,9 @@ const withBase = createWithBase(base);
 const { settings } = getThemeSettings();
 
 export async function buildArchiveFeed(context, overrides = {}) {
-  const essays = await getPublished('essay', {
-    includeDraft: false,
-    orderBy: (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+  const archiveItems = await getArchiveEssays({
+    includeDraft: false
   });
-  const archiveItems = essays
-    .filter((entry) => entry.data.archive !== false)
-    .filter((entry) => !isReservedSlug(entry.data.slug ?? entry.id))
-    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 
   return rss({
     title: overrides.title ?? `${settings.site.title} · 归档`,
@@ -25,7 +20,7 @@ export async function buildArchiveFeed(context, overrides = {}) {
       title: entry.data.title,
       pubDate: entry.data.date,
       description: entry.data.description,
-      link: withBase(`/archive/${entry.data.slug ?? entry.id}/`)
+      link: withBase(`/archive/${getEssaySlug(entry)}/`)
     }))
   });
 }

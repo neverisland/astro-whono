@@ -27,6 +27,31 @@ const NOTO_OUTPUTS = {
   }
 };
 
+const failMissingPyftsubset = (details) => {
+  console.error('[font:subset] Missing required tool / 缺少必需命令');
+  console.error('- command: pyftsubset');
+  console.error('- required by: npm run font:subset / npm run font:build');
+  console.error('- install: python -m pip install fonttools brotli zopfli');
+  console.error('- verify: pyftsubset --help');
+  console.error('- note: ensure the Python Scripts directory is available on PATH / 请确保 Python Scripts 目录已加入 PATH');
+  if (details) {
+    console.error(`- detail: ${details}`);
+  }
+  process.exit(1);
+};
+
+const ensurePyftsubsetAvailable = () => {
+  const result = spawnSync('pyftsubset', ['--help'], { stdio: 'pipe' });
+  if (result.error) {
+    failMissingPyftsubset(result.error.message);
+  }
+
+  if (result.status !== 0) {
+    const stderr = result.stderr ? String(result.stderr).trim() : '';
+    failMissingPyftsubset(stderr || `pyftsubset exited with code ${result.status ?? 'unknown'}`);
+  }
+};
+
 const runSubset = (label, args) => {
   const result = spawnSync('pyftsubset', args, { stdio: 'inherit' });
   if (result.status !== 0) {
@@ -49,6 +74,8 @@ if (!existsSync(CHARSET_PATH)) {
   console.error('run: npm run font:charset');
   process.exit(1);
 }
+
+ensurePyftsubsetAvailable();
 
 if (!existsSync(WENKAI_INPUT)) {
   failMissingSource({

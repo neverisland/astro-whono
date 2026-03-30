@@ -1,4 +1,6 @@
 ---
+import { ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH } from '../../lib/admin-console/shared';
+
 interface Props {
   pageTitleMaxLength: number;
   pageSubtitleMaxLength: number;
@@ -163,6 +165,48 @@ const {
         />
       </span>
     </label>
+  </div>
+
+  <div class="admin-subgroup">
+    <p class="admin-subtitle">
+      <span class="admin-subtitle__main">文章元信息</span>
+      <span class="admin-subtitle__hint">（字数/时长仅详情页，移动端隐藏）</span>
+    </p>
+    <div class="admin-toggle-row-group admin-toggle-row-group--article-meta">
+      <div class="admin-toggle-row admin-toggle-row--with-inline-field">
+        <label class="admin-toggle-row admin-toggle-row--compact" for="ui-article-meta-show-date">
+          <input id="ui-article-meta-show-date" type="checkbox" />
+          <span>显示发布日期</span>
+        </label>
+        <span class="admin-toggle-row__sep" aria-hidden="true">|</span>
+        <label class="admin-inline-field" for="ui-article-meta-date-label">
+          <span class="admin-inline-field__label">前缀：</span>
+          <input
+            id="ui-article-meta-date-label"
+            class="admin-inline-field__input"
+            type="text"
+            maxlength={ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH}
+            autocomplete="off"
+            placeholder="发布于："
+          />
+        </label>
+      </div>
+      <label class="admin-toggle-row">
+        <input id="ui-article-meta-show-tags" type="checkbox" />
+        <span>显示标签</span>
+      </label>
+      <label class="admin-toggle-row">
+        <input id="ui-article-meta-show-word-count" type="checkbox" />
+        <span>显示字数</span>
+      </label>
+      <label class="admin-toggle-row">
+        <input id="ui-article-meta-show-reading-time" type="checkbox" />
+        <span>显示阅读时长</span>
+      </label>
+    </div>
+    <p class="admin-help admin-help--article-meta-preview">
+      预览：<code id="article-meta-preview-value" class="admin-help__preview-value">{'发布于：2026-03-18 · #Astro\u00A0\u00A0#写作 · 共 2,416 字 · 约 6 分钟'}</code>
+    </p>
   </div>
 
   <div class="admin-subgroup">

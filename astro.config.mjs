@@ -14,15 +14,36 @@ const getSchemaAttrs = (tagName) => {
 };
 
 const mergeAttrs = (...lists) => Array.from(new Set(lists.flat()));
+const SITEMAP_ROUTE_ROOTS = new Set(['about', 'admin', 'archive', 'bits', 'checks', 'essay', 'memo']);
 
-const isAdminSitemapEntry = (page) => {
+const normalizeSitemapPathname = (page) => {
+  let pathname = '/';
+
   try {
-    const pathname = new URL(page).pathname;
-    return pathname === '/admin/' || pathname === '/admin';
+    pathname = new URL(page).pathname;
   } catch {
-    return page.endsWith('/admin/') || page.endsWith('/admin');
+    [pathname = '/'] = page.split(/[?#]/, 1);
   }
+
+  const normalizedPathname = pathname.replace(/\/+$/, '') || '/';
+  const segments = normalizedPathname.split('/').filter(Boolean);
+  const routeRootIndex = segments.findIndex((segment) => SITEMAP_ROUTE_ROOTS.has(segment));
+
+  if (routeRootIndex > 0) {
+    return `/${segments.slice(routeRootIndex).join('/')}`;
+  }
+
+  return normalizedPathname;
 };
+
+const isExcludedSitemapPathname = (pathname) =>
+  pathname === '/admin'
+  || pathname === '/checks'
+  || pathname.startsWith('/checks/')
+  || pathname === '/bits/draft-dialog'
+  || /^\/essay\/[^/]+$/.test(pathname);
+
+const isExcludedSitemapEntry = (page) => isExcludedSitemapPathname(normalizeSitemapPathname(page));
 
 const sanitizeSchema = {
   ...defaultSchema,
@@ -111,9 +132,10 @@ const sanitizeSchema = {
 export default defineConfig({
   // Required for RSS generation. Prefer SITE_URL; fallback keeps build passing.
   site: site.url,
-  // DEV 使用 server output 允许 /api/admin/settings 处理 POST；构建阶段回到 static 保持纯静态产物。
+  // DEV 使用 server output 允许 Theme Console 的 /api/admin/settings/ 处理读写；
+  // 构建阶段回到 static，让 /admin/ 保持只读提示，并避免把该路径当作生产公开 API。
   output: process.env.NODE_ENV === 'production' ? 'static' : 'server',
-  integrations: hasSiteUrl ? [sitemap({ filter: (page) => !isAdminSitemapEntry(page) })] : [],
+  integrations: hasSiteUrl ? [sitemap({ filter: (page) => !isExcludedSitemapEntry(page) })] : [],
   trailingSlash: 'always',
   build: {
     inlineStylesheets: 'auto'

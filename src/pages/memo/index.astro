@@ -142,8 +142,9 @@ for (const h of headings) {
   />
 
   <script>
-    import { initArticleLightbox } from '../../scripts/lightbox';
+    import { initArticleLightbox, initCodeCopyButtons } from '../../scripts/lightbox';
 
+    initCodeCopyButtons();
     initArticleLightbox({
       dialogId: 'lightbox',
       containerSelector: '.memo-content.prose',

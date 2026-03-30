@@ -1,5 +1,4 @@
-import { createWithBase, toSafeHttpUrl } from '../utils/format';
-import { normalizeAdminBitsAvatarPath } from '../lib/admin-console/shared';
+import { createWithBase, normalizeBitsAvatarPath, toSafeHttpUrl } from '../utils/format';
 
 type Tone = 'info' | 'error' | 'success';
 type ToolbarSnapshot = { value: string; start: number; end: number };
@@ -108,7 +107,7 @@ const resolvePreviewSrc = (value: string) => {
 };
 
 const normalizeAuthorName = (value: string) => value.trim();
-const normalizeAuthorAvatar = (value: string) => normalizeAdminBitsAvatarPath(value) ?? '';
+const normalizeAuthorAvatar = (value: string) => normalizeBitsAvatarPath(value) ?? '';
 const resolveAuthorAvatarPreviewSrc = (value: string) => {
   const normalized = normalizeAuthorAvatar(value);
   return normalized ? toSafeDocumentHttpUrl(withBase(normalized)) : '';
@@ -651,7 +650,7 @@ export const initBitsDraft = (): BitsDraftController | null => {
     }
 
     const authorName = normalizeAuthorName(authorNameEl?.value ?? '');
-    const authorAvatar = normalizeAdminBitsAvatarPath(authorAvatarEl?.value ?? '');
+    const authorAvatar = normalizeBitsAvatarPath(authorAvatarEl?.value ?? '');
     if (authorAvatar === undefined) {
       setStatus('作者头像只允许相对图片路径（例如 author/avatar.webp），不要带 public/、不要以 / 开头，也不要使用 URL、..、?、#。', 'error');
       authorAvatarEl?.focus();

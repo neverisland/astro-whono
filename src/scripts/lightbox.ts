@@ -33,6 +33,7 @@ type LightboxController = {
 
 const IMAGE_EXT = /\.(avif|webp|png|jpe?g|gif|svg)(?:$|[?#&])/i;
 const toSafeDocumentImageUrl = (value: string) => toSafeHttpUrl(value, window.location.href);
+let codeCopyInitialized = false;
 
 const createLightboxController = (options: LightboxOptions): LightboxController | null => {
   const merged: Required<LightboxOptions> = {
@@ -495,6 +496,73 @@ const createLightboxController = (options: LightboxOptions): LightboxController 
   };
 };
 
+export const initCodeCopyButtons = () => {
+  if (codeCopyInitialized) return;
+
+  const buttons = document.querySelectorAll<HTMLButtonElement>('.code-copy');
+  if (!buttons.length) return;
+
+  codeCopyInitialized = true;
+  buttons.forEach((button) => {
+    button.disabled = false;
+  });
+
+  const legacyCopy = (value: string) => {
+    const helper = document.createElement('textarea');
+    helper.value = value;
+    helper.setAttribute('readonly', '');
+    helper.style.position = 'fixed';
+    helper.style.opacity = '0';
+    document.body.appendChild(helper);
+    helper.select();
+    const execCommand = Reflect.get(document, 'execCommand');
+    const ok = typeof execCommand === 'function' ? Boolean(execCommand.call(document, 'copy')) : false;
+    helper.remove();
+    return ok;
+  };
+
+  document.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const button = target.closest<HTMLButtonElement>('.code-copy');
+    if (!button) return;
+
+    const code = button.closest('.code-block')?.querySelector('pre code');
+    const text = code?.textContent ?? '';
+    if (!text) return;
+
+    const canClipboard = Boolean(
+      navigator.clipboard
+      && typeof navigator.clipboard.writeText === 'function'
+      && window.isSecureContext
+    );
+
+    let copied = false;
+    if (canClipboard) {
+      try {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      } catch {
+        copied = false;
+      }
+    } else {
+      copied = legacyCopy(text);
+    }
+
+    if (!copied) return;
+
+    button.dataset.state = 'copied';
+    button.setAttribute('aria-label', '已复制');
+    button.setAttribute('title', '已复制');
+    window.setTimeout(() => {
+      button.dataset.state = 'idle';
+      button.setAttribute('aria-label', '复制代码');
+      button.setAttribute('title', '复制代码');
+    }, 1200);
+  });
+};
+
 export const initBitsLightbox = (options: LightboxOptions = {}) => {
   const controller = createLightboxController({
     enableZoom: true,
@@ -506,28 +574,35 @@ export const initBitsLightbox = (options: LightboxOptions = {}) => {
   if (!controller) return;
 
   const imagesCache = new WeakMap<HTMLElement, LightboxImage[]>();
+  const parsePositiveDimension = (value: string | undefined) => {
+    const parsed = Number(value ?? '');
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  };
+  const toBitLightboxImage = (node: HTMLElement): LightboxImage | null => {
+    const safeSrc = toSafeDocumentImageUrl(node.dataset.bitImageSrc ?? '');
+    if (!safeSrc) return null;
+    const alt = node.dataset.bitImageAlt ?? '';
+    const width = parsePositiveDimension(node.dataset.bitImageWidth);
+    const height = parsePositiveDimension(node.dataset.bitImageHeight);
+    return {
+      src: safeSrc,
+      ...(alt ? { alt } : {}),
+      ...(width ? { width } : {}),
+      ...(height ? { height } : {})
+    };
+  };
 
   const parseImages = (card: HTMLElement) => {
     const cached = imagesCache.get(card);
     if (cached) return cached;
-    const script = card.querySelector<HTMLScriptElement>('script[data-bit-images]');
-    if (!script?.textContent) return null;
-    try {
-      const parsed = JSON.parse(script.textContent) as LightboxImage[];
-      if (!Array.isArray(parsed)) return null;
-      const sanitized = parsed
-        .filter((item): item is LightboxImage => !!item && typeof item.src === 'string')
-        .map((item) => {
-          const safeSrc = toSafeDocumentImageUrl(item.src);
-          return safeSrc ? { ...item, src: safeSrc } : null;
-        })
-        .filter((item): item is LightboxImage => item !== null);
-      if (sanitized.length === 0) return null;
-      imagesCache.set(card, sanitized);
-      return sanitized;
-    } catch {
-      return null;
-    }
+    const imageNodes = Array.from(card.querySelectorAll<HTMLElement>('[data-bit-image-item]'));
+    if (imageNodes.length === 0) return null;
+    const sanitized = imageNodes
+      .map(toBitLightboxImage)
+      .filter((item): item is LightboxImage => item !== null);
+    if (sanitized.length === 0) return null;
+    imagesCache.set(card, sanitized);
+    return sanitized;
   };
 
   const handleOpen = (button: HTMLButtonElement, index: number) => {

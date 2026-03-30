@@ -5,6 +5,13 @@
   "readingMode": {
     "showEntry": true
   },
+  "articleMeta": {
+    "showDate": true,
+    "dateLabel": "发布于：",
+    "showTags": true,
+    "showWordCount": true,
+    "showReadingTime": true
+  },
   "layout": {
     "sidebarDivider": "default"
   }

@@ -1,23 +1,41 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { site as legacySite } from '../../site.config.mjs';
 import {
+  getBitsAvatarLocalFilePath,
+  getHeroImageLocalFilePath,
+  normalizeBitsAvatarPath,
+  normalizeHeroImageSrc
+} from '../utils/format';
+import {
+  ADMIN_ARTICLE_META_DATE_LABEL_DEFAULT,
+  ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH,
   ADMIN_HERO_IMAGE_ALT_DEFAULT,
   ADMIN_HERO_IMAGE_ALT_MAX_LENGTH,
   ADMIN_HOME_INTRO_LINK_DEFAULT,
   ADMIN_HOME_INTRO_LINK_KEY_SET,
   ADMIN_HOME_INTRO_LINK_LIMIT,
   ADMIN_LOCALE_RE,
+  ADMIN_NAV_IDS,
+  ADMIN_NAV_ORDER_MAX,
+  ADMIN_NAV_ORDER_MIN,
   ADMIN_NAV_ORNAMENT_DEFAULT,
   ADMIN_NAV_ORNAMENT_MAX_LENGTH,
   ADMIN_HERO_PRESET_SET,
-  getAdminBitsAvatarLocalFilePath,
+  ADMIN_SOCIAL_ORDER_MAX,
+  ADMIN_SOCIAL_ORDER_MIN,
+  ADMIN_SOCIAL_PRESET_IDS,
+  createAdminWritableThemeSettingsGroups,
+  getAdminNavOrderIssues,
+  getAdminThemeSettingsGroupFileName,
+  getAdminThemeSettingsMismatchPaths,
+  getAdminSocialOrderIssues,
   ADMIN_SIDEBAR_DIVIDER_DEFAULT,
-  getAdminHeroImageLocalFilePath,
+  isAdminNavOrderValue,
+  isAdminSocialOrderValue,
   isAdminSidebarDividerVariant,
-  normalizeAdminBitsAvatarPath,
   normalizeAdminSocialIconKey,
-  normalizeAdminHeroImageSrc
 } from './admin-console/shared';
 
 export type SettingSource = 'new' | 'legacy' | 'default';
@@ -26,7 +44,7 @@ export type SidebarNavId = 'essay' | 'bits' | 'memo' | 'archive' | 'about';
 export type PageId = 'essay' | 'archive' | 'bits' | 'memo' | 'about';
 export type HeroPresetId = 'default' | 'none';
 export type SidebarDividerVariant = 'default' | 'subtle' | 'none';
-export type HomeIntroLinkKey = 'archive' | 'essay' | 'bits' | 'memo' | 'about';
+export type HomeIntroLinkKey = 'archive' | 'essay' | 'bits' | 'memo' | 'about' | 'tag';
 export type SiteSocialPresetId = 'github' | 'x' | 'email';
 export type SiteSocialKind = 'preset' | 'custom';
 export type SiteSocialIconKey =
@@ -140,6 +158,16 @@ export interface PageSettings {
   about: PageHeadingSettings;
 }
 
+export interface ArticleMetaSettings {
+  showDate: boolean;
+  dateLabel: string;
+  showTags: boolean;
+  showWordCount: boolean;
+  showReadingTime: boolean;
+}
+
+export type ArticleMetaDisplayContext = 'home' | 'list' | 'detail';
+
 export interface UiSettings {
   codeBlock: {
     showLineNumbers: boolean;
@@ -147,6 +175,7 @@ export interface UiSettings {
   readingMode: {
     showEntry: boolean;
   };
+  articleMeta: ArticleMetaSettings;
   layout: {
     sidebarDivider: SidebarDividerVariant;
   };
@@ -208,9 +237,20 @@ export interface ThemeSettingsSources {
   ui: {
     codeBlockShowLineNumbers: SettingSource;
     readingModeShowEntry: SettingSource;
+    articleMetaShowDate: SettingSource;
+    articleMetaDateLabel: SettingSource;
+    articleMetaShowTags: SettingSource;
+    articleMetaShowWordCount: SettingSource;
+    articleMetaShowReadingTime: SettingSource;
     layoutSidebarDivider: SettingSource;
   };
 }
+
+const ARTICLE_META_TAG_LIMITS: Record<ArticleMetaDisplayContext, number> = {
+  home: 1,
+  list: 3,
+  detail: 3
+};
 
 export interface ThemeSettingsResolved {
   settings: ThemeSettings;
@@ -234,11 +274,70 @@ export interface EditableThemeSettings extends Omit<ThemeSettings, 'site'> {
 }
 
 export interface ThemeSettingsEditablePayload {
+  revision: string;
   settings: EditableThemeSettings;
   sources: ThemeSettingsSources;
 }
 
-const SETTINGS_DIR = join(process.cwd(), 'src', 'data', 'settings');
+type EditableThemeSettingsSnapshot = EditableThemeSettings;
+
+export type ThemeSettingsFileGroup = 'site' | 'shell' | 'home' | 'page' | 'ui';
+
+export interface ThemeSettingsReadDiagnostic {
+  group: ThemeSettingsFileGroup;
+  path: string;
+  code: 'invalid-json' | 'invalid-root' | 'read-failed' | 'schema-mismatch';
+  message: string;
+  detail?: string;
+  line?: number;
+  column?: number;
+}
+
+export interface ThemeSettingsEditableErrorState {
+  ok: false;
+  mode: 'invalid-settings';
+  message: string;
+  errors: string[];
+  diagnostics: ThemeSettingsReadDiagnostic[];
+}
+
+export type ThemeSettingsEditableState =
+  | {
+      ok: true;
+      payload: ThemeSettingsEditablePayload;
+    }
+  | ThemeSettingsEditableErrorState;
+
+const DEFAULT_SETTINGS_DIR = join(process.cwd(), 'src', 'data', 'settings');
+const INTERNAL_TEST_SETTINGS_DIR_ENV = 'ASTRO_WHONO_INTERNAL_TEST_SETTINGS_DIR';
+const INTERNAL_TEST_SETTINGS_FLAG_ENV = 'ASTRO_WHONO_INTERNAL_TEST_SETTINGS';
+const SETTINGS_FILE_GROUPS: readonly ThemeSettingsFileGroup[] = ['site', 'shell', 'home', 'page', 'ui'];
+const SETTINGS_RELATIVE_PATHS: Record<ThemeSettingsFileGroup, string> = {
+  site: 'src/data/settings/site.json',
+  shell: 'src/data/settings/shell.json',
+  home: 'src/data/settings/home.json',
+  page: 'src/data/settings/page.json',
+  ui: 'src/data/settings/ui.json'
+};
+
+const isInternalThemeSettingsDirOverrideEnabled = (): boolean =>
+  process.env[INTERNAL_TEST_SETTINGS_FLAG_ENV] === '1' || process.env.VITEST === 'true';
+
+const resolveInternalThemeSettingsDirOverride = (): string | null => {
+  if (!isInternalThemeSettingsDirOverrideEnabled()) return null;
+  const rawValue = process.env[INTERNAL_TEST_SETTINGS_DIR_ENV]?.trim();
+  return rawValue ? rawValue : null;
+};
+
+export const getThemeSettingsDir = (): string => resolveInternalThemeSettingsDirOverride() ?? DEFAULT_SETTINGS_DIR;
+
+export const getThemeSettingsFilePath = (group: ThemeSettingsFileGroup): string =>
+  join(getThemeSettingsDir(), getAdminThemeSettingsGroupFileName(group));
+
+export const getThemeSettingsRelativePath = (group: ThemeSettingsFileGroup): string => SETTINGS_RELATIVE_PATHS[group];
+
+const THEME_SETTINGS_INVALID_MESSAGE =
+  '检测到 settings JSON 配置文件损坏，Theme Console 已停止读取并禁止保存，请先修复对应文件后再重试';
 
 const LEGACY_INTRO_LEAD =
   '这是一个开源写作主题与示例内容库:包含 随笔/essay、小记/memo、归档/archive 与 絮语/bits，使用与配置请见 README 。';
@@ -273,6 +372,7 @@ const LEGACY_NAV: SidebarNavItem[] = [
   { id: 'archive', label: '归档', ornament: ADMIN_NAV_ORNAMENT_DEFAULT, visible: true, order: 4 },
   { id: 'about', label: '关于', ornament: ADMIN_NAV_ORNAMENT_DEFAULT, visible: true, order: 5 }
 ];
+const LEGACY_NAV_ORDER = new Map<SidebarNavId, number>(LEGACY_NAV.map((item) => [item.id, item.order]));
 
 const cloneNavItems = (items: readonly SidebarNavItem[]): SidebarNavItem[] =>
   items.map((item) => ({ ...item }));
@@ -296,6 +396,10 @@ const cloneThemeSettingsSources = (sources: ThemeSettingsSources): ThemeSettings
   page: { ...sources.page },
   ui: { ...sources.ui }
 });
+
+const cloneThemeSettingsReadDiagnostics = (
+  diagnostics: readonly ThemeSettingsReadDiagnostic[]
+): ThemeSettingsReadDiagnostic[] => diagnostics.map((diagnostic) => ({ ...diagnostic }));
 
 const DEFAULT_SITE: SiteSettings = {
   title: 'Whono',
@@ -367,6 +471,13 @@ const DEFAULT_UI: UiSettings = {
   readingMode: {
     showEntry: true
   },
+  articleMeta: {
+    showDate: true,
+    dateLabel: ADMIN_ARTICLE_META_DATE_LABEL_DEFAULT,
+    showTags: true,
+    showWordCount: true,
+    showReadingTime: true
+  },
   layout: {
     sidebarDivider: ADMIN_SIDEBAR_DIVIDER_DEFAULT
   }
@@ -396,6 +507,7 @@ const SIDEBAR_HREFS: Record<SidebarNavId, string> = {
 };
 
 let cachedSettings: ThemeSettingsResolved | null = null;
+const shouldCacheThemeSettings = import.meta.env.PROD;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -416,6 +528,14 @@ const asLocale = (value: unknown): string | undefined => {
 const asSingleLineString = (value: unknown, maxLength?: number): string | undefined => {
   const next = asNonEmptyString(value);
   if (!next) return undefined;
+  if (next.includes('\n') || next.includes('\r')) return undefined;
+  if (typeof maxLength === 'number' && next.length > maxLength) return undefined;
+  return next;
+};
+
+const asTrimmedSingleLineString = (value: unknown, maxLength?: number): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const next = value.trim();
   if (next.includes('\n') || next.includes('\r')) return undefined;
   if (typeof maxLength === 'number' && next.length > maxLength) return undefined;
   return next;
@@ -446,8 +566,7 @@ const asFooterStartYear = (value: unknown): number | undefined => {
 
 const asPresetSocialOrderValue = (value: unknown): number | undefined => {
   const next = asInteger(value);
-  if (next === undefined) return undefined;
-  return next >= 1 && next <= 999 ? next : undefined;
+  return next !== undefined && isAdminSocialOrderValue(next) ? next : undefined;
 };
 
 const asNullableString = (value: unknown): string | null | undefined => {
@@ -495,9 +614,6 @@ const asEmailAddress = (value: unknown): string | null | undefined => {
 const asBoolean = (value: unknown): boolean | undefined =>
   typeof value === 'boolean' ? value : undefined;
 
-const asFiniteNumber = (value: unknown): number | undefined =>
-  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-
 const asNavId = (value: unknown): SidebarNavId | undefined => {
   if (typeof value !== 'string') return undefined;
   return NAV_IDS.has(value as SidebarNavId) ? (value as SidebarNavId) : undefined;
@@ -514,20 +630,20 @@ const asSidebarDividerVariant = (value: unknown): SidebarDividerVariant | undefi
 };
 
 const asHeroImageSrc = (value: unknown): string | null | undefined => {
-  const normalized = normalizeAdminHeroImageSrc(value);
+  const normalized = normalizeHeroImageSrc(value);
   if (normalized === undefined || normalized === null) return normalized;
 
-  const localFilePath = getAdminHeroImageLocalFilePath(normalized);
+  const localFilePath = getHeroImageLocalFilePath(normalized);
   if (!localFilePath) return normalized;
 
   return existsSync(join(process.cwd(), ...localFilePath.split('/'))) ? normalized : undefined;
 };
 
 const asBitsAvatarPath = (value: unknown): string | undefined => {
-  const normalized = normalizeAdminBitsAvatarPath(value);
+  const normalized = normalizeBitsAvatarPath(value);
   if (normalized === undefined || !normalized) return normalized;
 
-  const localFilePath = getAdminBitsAvatarLocalFilePath(normalized);
+  const localFilePath = getBitsAvatarLocalFilePath(normalized);
   if (!localFilePath) return normalized;
 
   return existsSync(join(process.cwd(), ...localFilePath.split('/'))) ? normalized : undefined;
@@ -542,6 +658,18 @@ const asSocialIconKey = (value: unknown): SiteSocialIconKey | undefined => {
   return normalizeAdminSocialIconKey(value);
 };
 
+export const getVisibleArticleMetaTags = (
+  tags: readonly string[] | null | undefined,
+  context: ArticleMetaDisplayContext
+): string[] => {
+  if (!Array.isArray(tags)) return [];
+
+  return tags
+    .map((tag) => (typeof tag === 'string' ? tag.trim() : ''))
+    .filter((tag): tag is string => Boolean(tag))
+    .slice(0, ARTICLE_META_TAG_LIMITS[context]);
+};
+
 const resolveValue = <T>(
   nextValue: T | undefined,
   legacyValue: T | undefined,
@@ -552,18 +680,259 @@ const resolveValue = <T>(
   return { value: defaultValue, source: 'default' };
 };
 
-const readSettingsObject = (name: 'site' | 'shell' | 'home' | 'page' | 'ui'): Record<string, unknown> | undefined => {
-  const filePath = join(SETTINGS_DIR, `${name}.json`);
+const toReadErrorDetail = (error: unknown): string =>
+  error instanceof Error ? error.message.trim() : String(error).trim();
+
+const extractDiagnosticLocation = (
+  detail?: string
+): { line?: number; column?: number } => {
+  if (!detail) return {};
+
+  const match = detail.match(/\(line\s+(\d+)\s+column\s+(\d+)\)\s*$/i);
+  if (!match) return {};
+
+  const line = Number.parseInt(match[1] ?? '', 10);
+  const column = Number.parseInt(match[2] ?? '', 10);
+  const location: { line?: number; column?: number } = {};
+  if (Number.isFinite(line)) {
+    location.line = line;
+  }
+  if (Number.isFinite(column)) {
+    location.column = column;
+  }
+  return location;
+};
+
+const createThemeSettingsReadDiagnostic = (
+  group: ThemeSettingsFileGroup,
+  code: ThemeSettingsReadDiagnostic['code'],
+  detail?: string
+): ThemeSettingsReadDiagnostic => {
+  const path = SETTINGS_RELATIVE_PATHS[group];
+  const message =
+    code === 'invalid-json'
+      ? `${path} 不是合法 JSON`
+      : code === 'invalid-root'
+        ? `${path} 的根节点必须是 JSON 对象`
+        : code === 'schema-mismatch'
+          ? `${path} 存在无效或非规范配置值`
+          : `${path} 读取失败`;
+  const location = extractDiagnosticLocation(detail);
+
+  return {
+    group,
+    path,
+    code,
+    message,
+    ...(detail ? { detail } : {}),
+    ...location
+  };
+};
+
+const readSettingsObject = (
+  name: ThemeSettingsFileGroup,
+  diagnostics: ThemeSettingsReadDiagnostic[] = []
+): Record<string, unknown> | undefined => {
+  const filePath = getThemeSettingsFilePath(name);
   if (!existsSync(filePath)) return undefined;
+
   try {
     const raw = readFileSync(filePath, 'utf8');
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed)) return undefined;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      const diagnostic = createThemeSettingsReadDiagnostic(name, 'invalid-json', toReadErrorDetail(error));
+      console.warn(`[astro-whono] Failed to parse ${filePath}:`, error);
+      diagnostics.push(diagnostic);
+      return undefined;
+    }
+
+    if (!isRecord(parsed)) {
+      const diagnostic = createThemeSettingsReadDiagnostic(name, 'invalid-root');
+      console.warn(`[astro-whono] Invalid settings root for ${filePath}: expected JSON object`);
+      diagnostics.push(diagnostic);
+      return undefined;
+    }
+
     return parsed;
   } catch (error) {
+    const diagnostic = createThemeSettingsReadDiagnostic(name, 'read-failed', toReadErrorDetail(error));
     console.warn(`[astro-whono] Failed to read ${filePath}:`, error);
+    diagnostics.push(diagnostic);
     return undefined;
   }
+};
+
+const readThemeSettingsObjects = (
+  diagnostics: ThemeSettingsReadDiagnostic[] = []
+): Partial<Record<ThemeSettingsFileGroup, Record<string, unknown>>> => {
+  const settingsObjects: Partial<Record<ThemeSettingsFileGroup, Record<string, unknown>>> = {};
+  for (const group of SETTINGS_FILE_GROUPS) {
+    const settingsObject = readSettingsObject(group, diagnostics);
+    if (settingsObject) {
+      settingsObjects[group] = settingsObject;
+    }
+  }
+  return settingsObjects;
+};
+
+const collectThemeSettingsSchemaDiagnostics = (
+  rawSettings: Partial<Record<ThemeSettingsFileGroup, Record<string, unknown>>>,
+  resolved: ThemeSettingsResolved
+): ThemeSettingsReadDiagnostic[] => {
+  const editableSnapshot = buildEditableThemeSettingsSnapshot(resolved);
+  const canonicalGroups = createAdminWritableThemeSettingsGroups(editableSnapshot);
+  const diagnostics: ThemeSettingsReadDiagnostic[] = [];
+
+  for (const group of SETTINGS_FILE_GROUPS) {
+    const rawGroup = rawSettings[group];
+    if (!rawGroup) continue;
+
+    const mismatchPaths = getAdminThemeSettingsMismatchPaths(rawGroup, canonicalGroups[group], 'exact');
+    if (!mismatchPaths.length) continue;
+
+    const summarizedPaths = mismatchPaths.slice(0, 6);
+    const suffix = mismatchPaths.length > summarizedPaths.length ? ' 等' : '';
+    diagnostics.push(
+      createThemeSettingsReadDiagnostic(
+        group,
+        'schema-mismatch',
+        `以下字段会在读取时被静默修补：${summarizedPaths.join(', ')}${suffix}`
+      )
+    );
+  }
+
+  return diagnostics;
+};
+
+export const getThemeSettingsReadDiagnostics = (
+  resolved: ThemeSettingsResolved = getThemeSettings()
+): ThemeSettingsReadDiagnostic[] => {
+  const diagnostics: ThemeSettingsReadDiagnostic[] = [];
+  const rawSettings = readThemeSettingsObjects(diagnostics);
+  if (diagnostics.length === 0) {
+    diagnostics.push(...collectThemeSettingsSchemaDiagnostics(rawSettings, resolved));
+  }
+
+  return cloneThemeSettingsReadDiagnostics(diagnostics);
+};
+
+export const getThemeSettingsRevision = (resolved: ThemeSettingsResolved = getThemeSettings()): string =>
+  hashEditableThemeSettingsSnapshot(buildEditableThemeSettingsSnapshot(resolved));
+
+const claimAvailableOrder = (
+  usedOrders: Set<number>,
+  preferredOrder: number,
+  fallbackOrder: number,
+  isValidOrder: (value: number) => boolean,
+  minOrder: number,
+  maxOrder: number
+): number => {
+  if (isValidOrder(preferredOrder) && !usedOrders.has(preferredOrder)) {
+    usedOrders.add(preferredOrder);
+    return preferredOrder;
+  }
+
+  if (isValidOrder(fallbackOrder) && !usedOrders.has(fallbackOrder)) {
+    usedOrders.add(fallbackOrder);
+    return fallbackOrder;
+  }
+
+  for (let order = minOrder; order <= maxOrder; order += 1) {
+    if (usedOrders.has(order)) continue;
+    usedOrders.add(order);
+    return order;
+  }
+
+  usedOrders.add(fallbackOrder);
+  return fallbackOrder;
+};
+
+const sortSidebarNavItems = (items: readonly SidebarNavItem[]): SidebarNavItem[] =>
+  [...items].sort((a, b) => {
+    if (a.order !== b.order) return a.order - b.order;
+    return ADMIN_NAV_IDS.indexOf(a.id) - ADMIN_NAV_IDS.indexOf(b.id);
+  });
+
+const normalizeSidebarNavItems = (items: readonly SidebarNavItem[]): SidebarNavItem[] => {
+  const normalized = cloneNavItems(items);
+  const hasOrderIssues = getAdminNavOrderIssues(
+    normalized.map((item) => ({
+      key: item.id,
+      order: item.order
+    }))
+  ).length > 0;
+
+  if (!hasOrderIssues) {
+    return sortSidebarNavItems(normalized);
+  }
+
+  const usedOrders = new Set<number>();
+  const nextItems = normalized.map((item) => ({
+    ...item,
+    order: claimAvailableOrder(
+      usedOrders,
+      item.order,
+      LEGACY_NAV_ORDER.get(item.id) ?? ADMIN_NAV_IDS.indexOf(item.id) + 1,
+      isAdminNavOrderValue,
+      ADMIN_NAV_ORDER_MIN,
+      ADMIN_NAV_ORDER_MAX
+    )
+  }));
+
+  return sortSidebarNavItems(nextItems);
+};
+
+const normalizeSocialOrderState = (
+  presetOrder: Readonly<SiteSocialPresetOrder>,
+  customItems: readonly SiteSocialCustomItem[]
+): { presetOrder: SiteSocialPresetOrder; customItems: SiteSocialCustomItem[] } => {
+  const nextPresetOrder = clonePresetSocialOrder(presetOrder);
+  const nextCustomItems = cloneSocialCustomItems(customItems);
+  const hasOrderIssues = getAdminSocialOrderIssues(
+    nextPresetOrder,
+    nextCustomItems.map((item, index) => ({
+      key: String(index),
+      order: item.order
+    }))
+  ).length > 0;
+
+  if (!hasOrderIssues) {
+    return {
+      presetOrder: nextPresetOrder,
+      customItems: nextCustomItems
+    };
+  }
+
+  const usedOrders = new Set<number>();
+
+  ADMIN_SOCIAL_PRESET_IDS.forEach((id) => {
+    nextPresetOrder[id] = claimAvailableOrder(
+      usedOrders,
+      nextPresetOrder[id],
+      DEFAULT_PRESET_SOCIAL_ORDER[id],
+      isAdminSocialOrderValue,
+      ADMIN_SOCIAL_ORDER_MIN,
+      ADMIN_SOCIAL_ORDER_MAX
+    );
+  });
+
+  nextCustomItems.forEach((item, index) => {
+    item.order = claimAvailableOrder(
+      usedOrders,
+      item.order,
+      PRESET_SOCIAL_ITEMS.length + index + 1,
+      isAdminSocialOrderValue,
+      ADMIN_SOCIAL_ORDER_MIN,
+      ADMIN_SOCIAL_ORDER_MAX
+    );
+  });
+
+  return {
+    presetOrder: nextPresetOrder,
+    customItems: nextCustomItems
+  };
 };
 
 const parseSidebarNav = (value: unknown): SidebarNavItem[] | undefined => {
@@ -584,7 +953,8 @@ const parseSidebarNav = (value: unknown): SidebarNavItem[] | undefined => {
     const label = asNonEmptyString(row.label) ?? current.label;
     const ornament = asNullableSingleLineString(row.ornament, ADMIN_NAV_ORNAMENT_MAX_LENGTH);
     const visible = asBoolean(row.visible) ?? current.visible;
-    const order = asFiniteNumber(row.order) ?? current.order;
+    const rawOrder = asInteger(row.order);
+    const order = rawOrder !== undefined && isAdminNavOrderValue(rawOrder) ? rawOrder : current.order;
 
     merged.set(id, {
       id,
@@ -621,6 +991,7 @@ const parseSocialCustomItems = (value: unknown): SiteSocialCustomItem[] | undefi
       suffix += 1;
     }
     seenIds.add(id);
+    const rawOrder = asInteger(row.order);
 
     normalized.push({
       id,
@@ -628,7 +999,7 @@ const parseSocialCustomItems = (value: unknown): SiteSocialCustomItem[] | undefi
       href,
       iconKey: asSocialIconKey(row.iconKey) ?? 'website',
       visible: asBoolean(row.visible) ?? true,
-      order: asInteger(row.order) ?? index + 1
+      order: rawOrder !== undefined && isAdminSocialOrderValue(rawOrder) ? rawOrder : index + 1
     });
 
     if (normalized.length >= SOCIAL_CUSTOM_LIMIT) break;
@@ -695,7 +1066,7 @@ const buildResolvedSocialItems = (
 };
 
 export const getThemeSettings = (): ThemeSettingsResolved => {
-  if (cachedSettings) return cachedSettings;
+  if (shouldCacheThemeSettings && cachedSettings) return cachedSettings;
 
   const siteJson = readSettingsObject('site');
   const shellJson = readSettingsObject('shell');
@@ -899,6 +1270,7 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
 
   const uiCodeBlock = isRecord(uiJson?.codeBlock) ? uiJson.codeBlock : undefined;
   const uiReadingMode = isRecord(uiJson?.readingMode) ? uiJson.readingMode : undefined;
+  const uiArticleMeta = isRecord(uiJson?.articleMeta) ? uiJson.articleMeta : undefined;
   const uiLayout = isRecord(uiJson?.layout) ? uiJson.layout : undefined;
 
   const showLineNumbers = resolveValue(
@@ -911,18 +1283,48 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
     DEFAULT_UI.readingMode.showEntry,
     DEFAULT_UI.readingMode.showEntry
   );
+  const showArticleDate = resolveValue(
+    asBoolean(uiArticleMeta?.showDate),
+    undefined,
+    DEFAULT_UI.articleMeta.showDate
+  );
+  const articleDateLabel = resolveValue(
+    asTrimmedSingleLineString(uiArticleMeta?.dateLabel, ADMIN_ARTICLE_META_DATE_LABEL_MAX_LENGTH),
+    undefined,
+    DEFAULT_UI.articleMeta.dateLabel
+  );
+  const showArticleTags = resolveValue(
+    asBoolean(uiArticleMeta?.showTags),
+    undefined,
+    DEFAULT_UI.articleMeta.showTags
+  );
+  const showArticleWordCount = resolveValue(
+    asBoolean(uiArticleMeta?.showWordCount),
+    undefined,
+    DEFAULT_UI.articleMeta.showWordCount
+  );
+  const showArticleReadingTime = resolveValue(
+    asBoolean(uiArticleMeta?.showReadingTime),
+    undefined,
+    DEFAULT_UI.articleMeta.showReadingTime
+  );
   const sidebarDivider = resolveValue(
     asSidebarDividerVariant(uiLayout?.sidebarDivider),
     undefined,
     DEFAULT_UI.layout.sidebarDivider
   );
 
-  const customSocialItems = cloneSocialCustomItems(socialLinksCustom.value);
-  const presetSocialOrder = clonePresetSocialOrder({
-    github: socialLinksGithubOrder.value,
-    x: socialLinksXOrder.value,
-    email: socialLinksEmailOrder.value
-  });
+  const normalizedNav = normalizeSidebarNavItems(nav.value);
+  const normalizedSocialOrderState = normalizeSocialOrderState(
+    {
+      github: socialLinksGithubOrder.value,
+      x: socialLinksXOrder.value,
+      email: socialLinksEmailOrder.value
+    },
+    socialLinksCustom.value
+  );
+  const customSocialItems = cloneSocialCustomItems(normalizedSocialOrderState.customItems);
+  const presetSocialOrder = clonePresetSocialOrder(normalizedSocialOrderState.presetOrder);
   const resolvedSocialItems = buildResolvedSocialItems(
     {
       github: socialLinksGithub.value,
@@ -956,7 +1358,7 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
       shell: {
         brandTitle: brandTitle.value,
         quote: quote.value,
-        nav: cloneNavItems(nav.value)
+        nav: cloneNavItems(normalizedNav)
       },
       home: {
         introLead: introLead.value,
@@ -1000,6 +1402,13 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
         },
         readingMode: {
           showEntry: showReadingEntry.value
+        },
+        articleMeta: {
+          showDate: showArticleDate.value,
+          dateLabel: articleDateLabel.value,
+          showTags: showArticleTags.value,
+          showWordCount: showArticleWordCount.value,
+          showReadingTime: showArticleReadingTime.value
         },
         layout: {
           sidebarDivider: sidebarDivider.value
@@ -1054,67 +1463,113 @@ export const getThemeSettings = (): ThemeSettingsResolved => {
       ui: {
         codeBlockShowLineNumbers: showLineNumbers.source,
         readingModeShowEntry: showReadingEntry.source,
+        articleMetaShowDate: showArticleDate.source,
+        articleMetaDateLabel: articleDateLabel.source,
+        articleMetaShowTags: showArticleTags.source,
+        articleMetaShowWordCount: showArticleWordCount.source,
+        articleMetaShowReadingTime: showArticleReadingTime.source,
         layoutSidebarDivider: sidebarDivider.source
       }
     }
   };
 
-  cachedSettings = resolved;
+  // DEV 下关闭模块级缓存，避免手改 settings JSON 或切分支后继续读到旧值。
+  if (shouldCacheThemeSettings) {
+    cachedSettings = resolved;
+  }
   return resolved;
 };
 
 export const toEditableThemeSettingsPayload = (
   resolved: ThemeSettingsResolved
-): ThemeSettingsEditablePayload => ({
-  settings: {
-    site: {
-      title: resolved.settings.site.title,
-      description: resolved.settings.site.description,
-      defaultLocale: resolved.settings.site.defaultLocale,
-      footer: {
-        ...resolved.settings.site.footer
-      },
-      socialLinks: {
-        github: resolved.settings.site.socialLinks.github,
-        x: resolved.settings.site.socialLinks.x,
-        email: resolved.settings.site.socialLinks.email,
-        presetOrder: clonePresetSocialOrder(resolved.settings.site.socialLinks.presetOrder),
-        custom: cloneSocialCustomItems(resolved.settings.site.socialLinks.custom)
-      }
+): ThemeSettingsEditablePayload => {
+  const snapshot = buildEditableThemeSettingsSnapshot(resolved);
+
+  return {
+    revision: hashEditableThemeSettingsSnapshot(snapshot),
+    settings: snapshot,
+    sources: cloneThemeSettingsSources(resolved.sources)
+  };
+};
+
+const buildEditableThemeSettingsSnapshot = (
+  resolved: ThemeSettingsResolved
+): EditableThemeSettingsSnapshot => ({
+  site: {
+    title: resolved.settings.site.title,
+    description: resolved.settings.site.description,
+    defaultLocale: resolved.settings.site.defaultLocale,
+    footer: {
+      ...resolved.settings.site.footer
     },
-    shell: {
-      brandTitle: resolved.settings.shell.brandTitle,
-      quote: resolved.settings.shell.quote,
-      nav: cloneNavItems(resolved.settings.shell.nav)
-    },
-    home: {
-      ...resolved.settings.home,
-      introMoreLinks: cloneHomeIntroLinks(resolved.settings.home.introMoreLinks)
-    },
-    page: {
-      essay: { ...resolved.settings.page.essay },
-      archive: { ...resolved.settings.page.archive },
-      bits: {
-        title: resolved.settings.page.bits.title,
-        subtitle: resolved.settings.page.bits.subtitle,
-        defaultAuthor: {
-          ...resolved.settings.page.bits.defaultAuthor
-        }
-      },
-      memo: { ...resolved.settings.page.memo },
-      about: { ...resolved.settings.page.about }
-    },
-    ui: {
-      codeBlock: { ...resolved.settings.ui.codeBlock },
-      readingMode: { ...resolved.settings.ui.readingMode },
-      layout: { ...resolved.settings.ui.layout }
+    socialLinks: {
+      github: resolved.settings.site.socialLinks.github,
+      x: resolved.settings.site.socialLinks.x,
+      email: resolved.settings.site.socialLinks.email,
+      presetOrder: clonePresetSocialOrder(resolved.settings.site.socialLinks.presetOrder),
+      custom: cloneSocialCustomItems(resolved.settings.site.socialLinks.custom)
     }
   },
-  sources: cloneThemeSettingsSources(resolved.sources)
+  shell: {
+    brandTitle: resolved.settings.shell.brandTitle,
+    quote: resolved.settings.shell.quote,
+    nav: cloneNavItems(resolved.settings.shell.nav)
+  },
+  home: {
+    ...resolved.settings.home,
+    introMoreLinks: cloneHomeIntroLinks(resolved.settings.home.introMoreLinks)
+  },
+  page: {
+    essay: { ...resolved.settings.page.essay },
+    archive: { ...resolved.settings.page.archive },
+    bits: {
+      title: resolved.settings.page.bits.title,
+      subtitle: resolved.settings.page.bits.subtitle,
+      defaultAuthor: {
+        ...resolved.settings.page.bits.defaultAuthor
+      }
+    },
+    memo: { ...resolved.settings.page.memo },
+    about: { ...resolved.settings.page.about }
+  },
+  ui: {
+    codeBlock: { ...resolved.settings.ui.codeBlock },
+    readingMode: { ...resolved.settings.ui.readingMode },
+    articleMeta: { ...resolved.settings.ui.articleMeta },
+    layout: { ...resolved.settings.ui.layout }
+  }
 });
 
-export const getEditableThemeSettingsPayload = (): ThemeSettingsEditablePayload =>
-  toEditableThemeSettingsPayload(getThemeSettings());
+const hashEditableThemeSettingsSnapshot = (snapshot: EditableThemeSettingsSnapshot): string => {
+  const hash = createHash('sha1');
+  hash.update(JSON.stringify(snapshot));
+  return hash.digest('hex');
+};
+
+export const getEditableThemeSettingsPayload = (
+  resolved: ThemeSettingsResolved = getThemeSettings()
+): ThemeSettingsEditablePayload => toEditableThemeSettingsPayload(resolved);
+
+export const getEditableThemeSettingsState = (
+  resolved?: ThemeSettingsResolved
+): ThemeSettingsEditableState => {
+  const currentResolved = resolved ?? getThemeSettings();
+  const diagnostics = getThemeSettingsReadDiagnostics(currentResolved);
+  if (diagnostics.length > 0) {
+    return {
+      ok: false,
+      mode: 'invalid-settings',
+      message: THEME_SETTINGS_INVALID_MESSAGE,
+      errors: diagnostics.map((diagnostic) => diagnostic.message),
+      diagnostics
+    };
+  }
+
+  return {
+    ok: true,
+    payload: getEditableThemeSettingsPayload(currentResolved)
+  };
+};
 
 export const resetThemeSettingsCache = (): void => {
   cachedSettings = null;

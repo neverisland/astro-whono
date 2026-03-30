@@ -3,11 +3,12 @@ import { join } from 'node:path';
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
-import { getAdminBitsAvatarLocalFilePath, normalizeAdminBitsAvatarPath } from './lib/admin-console/shared';
+import { ESSAY_PUBLIC_SLUG_RE } from './utils/slug-rules';
+import { getBitsAvatarLocalFilePath, normalizeBitsAvatarPath } from './utils/format';
 
 const slugRule = z
   .string()
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'slug must be lowercase kebab-case');
+  .regex(ESSAY_PUBLIC_SLUG_RE, 'slug must be lowercase kebab-case');
 
 const baseFields = {
   title: z.string(),
@@ -16,7 +17,8 @@ const baseFields = {
   tags: z.array(z.string()).default([]),
   draft: z.boolean().default(false),
   archive: z.boolean().default(true),
-  // Optional custom permalink. If present, it overrides the auto-generated id.
+  // Optional custom permalink. If present, it overrides the default public slug
+  // derived from the entry id / path.
   slug: slugRule.optional()
 };
 
@@ -33,24 +35,24 @@ const hasProjectFile = (relativePath: string): boolean =>
 const bitsAuthorAvatar = z
   .string()
   .superRefine((value, ctx) => {
-    const normalized = normalizeAdminBitsAvatarPath(value);
+    const normalized = normalizeBitsAvatarPath(value);
     if (normalized === undefined) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'author.avatar 只允许相对图片路径（例如 author/avatar.webp），不要带 public/、不要以 / 开头，也不要使用 URL、..、?、#'
       });
       return;
     }
 
-    const localFilePath = getAdminBitsAvatarLocalFilePath(normalized);
+    const localFilePath = getBitsAvatarLocalFilePath(normalized);
     if (localFilePath && !hasProjectFile(localFilePath)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `author.avatar 指向的本地文件不存在：${localFilePath}`
       });
     }
   })
-  .transform((value) => normalizeAdminBitsAvatarPath(value) ?? value);
+  .transform((value) => normalizeBitsAvatarPath(value) ?? value);
 
 const bitsAuthor = z.object({
   name: z.string().optional(),

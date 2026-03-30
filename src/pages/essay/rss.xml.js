@@ -1,5 +1,5 @@
 import rss from '@astrojs/rss';
-import { getPublished, isReservedSlug } from '../../lib/content';
+import { getEssaySlug, getVisibleEssays } from '../../lib/content';
 import { createWithBase } from '../../utils/format';
 import { getThemeSettings } from '../../lib/theme-settings';
 
@@ -8,11 +8,9 @@ const withBase = createWithBase(base);
 const { settings } = getThemeSettings();
 
 export async function GET(context) {
-  const essays = await getPublished('essay', {
-    includeDraft: false,
-    orderBy: (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+  const visibleEssays = await getVisibleEssays({
+    includeDraft: false
   });
-  const visibleEssays = essays.filter((entry) => !isReservedSlug(entry.data.slug ?? entry.id));
 
   return rss({
     title: `${settings.site.title} · 随笔`,
@@ -22,7 +20,7 @@ export async function GET(context) {
       title: entry.data.title,
       pubDate: entry.data.date,
       description: entry.data.description,
-      link: withBase(`/archive/${entry.data.slug ?? entry.id}/`)
+      link: withBase(`/archive/${getEssaySlug(entry)}/`)
     }))
   });
 }

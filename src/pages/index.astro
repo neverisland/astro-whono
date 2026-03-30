@@ -7,16 +7,16 @@ import {
   ADMIN_HOME_INTRO_LINK_DEFAULT,
   getAdminHomeIntroLinkOption
 } from '../lib/admin-console/shared';
-import { getPublished, isReservedSlug } from '../lib/content';
-import { getThemeSettings } from '../lib/theme-settings';
-import { getListExcerpt } from '../utils/excerpt';
+import { getEssayDerivedText, getEssaySlug, getVisibleEssays } from '../lib/content';
+import { getThemeSettings, getVisibleArticleMetaTags } from '../lib/theme-settings';
 import { createWithBase } from '../utils/format';
 
 const base = import.meta.env.BASE_URL ?? '/';
 const withBase = createWithBase(base);
 const {
   settings: {
-    home: { introLead, introMore, introMoreLinks, showIntroLead, showIntroMore, heroPresetId, heroImageSrc, heroImageAlt }
+    home: { introLead, introMore, introMoreLinks, showIntroLead, showIntroMore, heroPresetId, heroImageSrc, heroImageAlt },
+    ui: { articleMeta }
   }
 } = getThemeSettings();
 const shouldShowHero = heroPresetId !== 'none';
@@ -33,12 +33,7 @@ const resolvedIntroMoreLinks = (introMoreLinks.length ? introMoreLinks : [...ADM
   (linkKey) => getAdminHomeIntroLinkOption(linkKey)
 );
 
-const essays = await getPublished('essay', {
-  orderBy: (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
-});
-
-const visibleEssays = essays.filter((entry) => !isReservedSlug(entry.data.slug ?? entry.id));
-const latest = visibleEssays.slice(0, 12);
+const latest = (await getVisibleEssays()).slice(0, 12);
 
 type HomeHeadCriticalFontFace = {
   family: 'LXGW WenKai Lite' | 'Noto Serif SC';
@@ -394,12 +389,7 @@ body[data-reading="immersive"] .reader-toggle .icon-book-open {
   font-weight: 600;
 }
 
-.meta-line {
-  color: var(--faint);
-  font-size: 12px;
-  font-family: "LXGW WenKai Lite", "Kaiti SC", "STKaiti", serif;
-}
-
+/* Keep above-the-fold EntryListItem copy stable until the deferred global stylesheet arrives. */
 .list-item__excerpt {
   margin: 10px 0 0;
   color: #666;
@@ -413,12 +403,42 @@ body[data-reading="immersive"] .reader-toggle .icon-book-open {
   font-family: "LXGW WenKai Lite", "Kaiti SC", "STKaiti", serif;
 }
 
-.site-footer {
-  margin-top: auto;
-  padding: 40px 0 10px;
-  text-align: center;
-  font-size: 12px;
+.meta-line {
+  margin-top: 10px;
+  margin-bottom: 12px;
+  font-size: 13px;
   color: var(--faint);
+}
+
+.meta-line--items {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.meta-line__item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.meta-line__item--tags {
+  gap: 0.65em;
+}
+
+.meta-line__item + .meta-line__item::before {
+  content: "·";
+  margin: 0 0.45em;
+  color: var(--faint);
+}
+
+.list-item .meta-line {
+  margin-top: 12px;
+  margin-bottom: 8px;
+  padding-top: 0;
+}
+
+.meta-line .tag {
+  color: var(--accent);
 }
 
 @media (min-width: 901px) {
@@ -434,12 +454,15 @@ body[data-reading="immersive"] .reader-toggle .icon-book-open {
 }
 
 @media (max-width: 900px) {
+  /* Keep mobile shell rules aligned with src/styles/components/layout.css. */
   :root {
     color-scheme: light;
     --sidebar: 1fr;
     --tap-min-h: 44px;
     --pad-x: 20px;
     --card-pad: 10px 12px;
+    --quote-pad: 0.85rem;
+    --header-gap: 4px;
   }
 
   :root[data-theme="dark"] {
@@ -466,7 +489,7 @@ body[data-reading="immersive"] .reader-toggle .icon-book-open {
     position: static;
     height: auto;
     padding: calc(32px + env(safe-area-inset-top)) calc(var(--pad-x) + env(safe-area-inset-right))
-      calc(32px + env(safe-area-inset-bottom)) calc(var(--pad-x) + env(safe-area-inset-left));
+      calc(16px + env(safe-area-inset-bottom)) calc(var(--pad-x) + env(safe-area-inset-left));
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
@@ -475,6 +498,7 @@ body[data-reading="immersive"] .reader-toggle .icon-book-open {
   }
 
   .sidebar__title {
+    transform-origin: left center;
     order: 1;
     flex: 1 1 auto;
     font-size: 24px;
@@ -499,6 +523,13 @@ body[data-reading="immersive"] .reader-toggle .icon-book-open {
     padding: 6px 8px;
     min-height: var(--tap-min-h);
     border-radius: 999px;
+    transform-origin: left center;
+  }
+
+  .nav a[aria-current="page"] {
+    text-decoration: underline;
+    text-underline-offset: 6px;
+    text-decoration-thickness: 2px;
   }
 
   .nav .dot,
@@ -506,11 +537,14 @@ body[data-reading="immersive"] .reader-toggle .icon-book-open {
     display: none;
   }
 
+  .icon-button {
+    min-width: var(--tap-min-h);
+    min-height: var(--tap-min-h);
+  }
+
   .sidebar-actions {
     order: 2;
     margin-top: 0;
-    margin-left: auto;
-    gap: 4px;
     align-self: center;
   }
 
@@ -521,6 +555,15 @@ body[data-reading="immersive"] .reader-toggle .icon-book-open {
     min-height: 36px;
   }
 
+  .sidebar-actions .icon-button .icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .sidebar {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
   .content {
     padding: calc(10px + env(safe-area-inset-top)) calc(var(--pad-x) + env(safe-area-inset-right))
       calc(48px + env(safe-area-inset-bottom)) calc(var(--pad-x) + env(safe-area-inset-left));
@@ -529,15 +572,41 @@ body[data-reading="immersive"] .reader-toggle .icon-book-open {
   .list-item {
     padding: 16px 0;
   }
+}
 
-  .list-item__row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
+@media (min-width: 641px) and (max-width: 900px) {
+  .sidebar {
+    padding: calc(28px + env(safe-area-inset-top)) calc(var(--pad-x) + env(safe-area-inset-right))
+      calc(36px + env(safe-area-inset-bottom)) calc(var(--pad-x) + env(safe-area-inset-left));
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .content {
+    padding: calc(18px + env(safe-area-inset-top)) calc(var(--pad-x) + env(safe-area-inset-right))
+      calc(56px + env(safe-area-inset-bottom)) calc(var(--pad-x) + env(safe-area-inset-left));
+  }
+
+  .nav a {
+    padding: 8px 12px;
   }
 }
 
 @media (max-width: 640px) {
+  .sidebar {
+    padding: calc(18px + env(safe-area-inset-top)) calc(var(--pad-x) + env(safe-area-inset-right))
+      calc(24px + env(safe-area-inset-bottom)) calc(var(--pad-x) + env(safe-area-inset-left));
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .nav {
+    gap: 8px 10px;
+  }
+
+  .nav a {
+    padding: 6px 8px;
+    font-size: 15px;
+  }
+
   .content {
     padding: calc(4px + env(safe-area-inset-top)) calc(var(--pad-x) + env(safe-area-inset-right))
       calc(36px + env(safe-area-inset-bottom)) calc(var(--pad-x) + env(safe-area-inset-left));
@@ -589,16 +658,17 @@ body[data-reading="immersive"] .reader-toggle .icon-book-open {
 
   <div class="list">
     {latest.map((entry) => {
-      const slug = entry.data.slug ?? entry.id;
+      const slug = getEssaySlug(entry);
       const href = withBase(`/archive/${slug}/`);
-      const tag = entry.data.tags?.[0];
+      const visibleTags = getVisibleArticleMetaTags(entry.data.tags, 'home');
       return (
         <EntryListItem
           href={href}
           title={entry.data.title}
           date={entry.data.date}
-          tag={tag}
-          excerpt={getListExcerpt(entry)}
+          visibleTags={visibleTags}
+          articleMetaSettings={articleMeta}
+          excerpt={getEssayDerivedText(entry).excerpt}
         />
       );
     })}

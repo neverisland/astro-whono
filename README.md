@@ -4,7 +4,10 @@
 
 [![CI](https://img.shields.io/github/actions/workflow/status/cxro/astro-whono/ci.yml?style=flat&label=CI&labelColor=2E3440&color=A3BE8C&logo=githubactions&logoColor=ECEFF4)](https://github.com/cxro/astro-whono/actions/workflows/ci.yml)  [![Node](https://img.shields.io/badge/Node-%3E%3D22.12.0-81A1C1?style=flat&labelColor=2E3440&logo=nodedotjs&logoColor=ECEFF4)](https://github.com/cxro/astro-whono#%E7%8E%AF%E5%A2%83%E8%A6%81%E6%B1%82)  [![Astro](https://img.shields.io/github/package-json/dependency-version/cxro/astro-whono/astro?branch=main&style=flat&label=Astro&labelColor=2E3440&color=BC52EE&logo=astro&logoColor=ECEFF4)](https://docs.astro.build/)  [![License](https://img.shields.io/badge/License-MIT-4C566A?style=flat&labelColor=2E3440&logo=opensourceinitiative&logoColor=ECEFF4)](LICENSE)
 
+**✨ astro-whono 现已升级至 Astro v6**
+
 一个极简双栏的 Astro 主题，用于个人写作与轻量内容发布。
+
 
 ## 链接
 
@@ -60,11 +63,33 @@ npm run build && npm run preview
 
 ### 常用命令
 
-- `npm run check`
-- `npm run ci`
-- `npm run audit:prod`
-- `npm run new:bit`
-- `npm run font:build`
+  - npm run dev
+  - npm run build
+  - npm run ci
+  - npm run new:bit
+
+<details>
+  <summary>检查与回归命令说明</summary>
+
+推荐按场景选择：
+
+```bash
+# 默认回归（GitHub Actions ）
+npm run ci
+
+# 发布前手动复核绝对链接 / sitemap / RSS（需已确定正式域名）
+SITE_URL=https://你的域名 npm run build
+SITE_URL=https://你的域名 npm run check:prod-artifacts
+
+# 仅在改动 Theme Console 或 /admin 边界时
+npm run check:preview-admin
+```
+
+- `npm test` 主要覆盖标签工具、Theme Console 共享校验规则，以及主题设置 `revision` 的关键纯逻辑回归。
+  - npm run ci 是默认回归入口；npm run ci:core 仅用于更快的本地增量回归。
+  - 未设置 SITE_URL 时，npm run build 仍可构建，但 SEO 相关输出会不完整。
+  - 发布前如需核对绝对链接产物，设置真实 SITE_URL 后运行 npm run check:prod-artifacts。
+</details>
 
 
 ## 部署
@@ -125,7 +150,7 @@ npm run build && npm run preview
 astro-whono 内置本地 Theme Console，用于开发环境中可视化配置主题，在fork 或 clone 项目后，无需熟悉整个项目结构即可快速完成站点接管。
 
 <details>
-<summary><strong>Theme Console 预览</strong></summary>
+<summary><strong>🖼️ Theme Console 预览</strong></summary>
 
 <br>
 
@@ -148,6 +173,7 @@ Theme Console 主要面向**站点级**和**页面级**配置，目前支持：
 - 社交链接与自定义社交项
 - 底部版权行 / Footer 基础文案
 - 固定内页的主副标题
+- 文章元信息展示规则
 - /bits/ 页面默认作者
 
 #### 如何启用
@@ -165,8 +191,9 @@ npm run dev
 
 #### 生产环境说明
 
-- 开发环境下可用，并支持保存配置
-- 生产构建仍然保持静态站点输出,不提供可写的后台能力
+- Theme Console 仅在本地开发环境可用，支持读取、校验和保存配置
+- 生产构建保持静态站点输出；`/admin/` 仅显示只读提示
+- `/api/admin/settings/` 仅供本地开发使用，生产环境不要依赖该接口
 
 
 #### 兼容迁移（已 fork用户）：
@@ -187,7 +214,7 @@ npm run dev
 
 主要路由：
 - 列表页：`/archive/`、`/essay/`、`/bits/`、`/memo/`、`/about/`
-- 详情页：`/archive/[...slug]`（唯一入口）
+- 详情页规范入口：/archive/[slug]（/essay/[slug] 保留兼容跳转）
 
 ### 图片资源
 
@@ -205,7 +232,7 @@ title: My Post
 date: 2026-01-01
 draft: false        # 草稿：上线后不会出现在列表/RSS（本地预览可见，默认是 false，可省略）
 archive: true       # 归档开关：false 不进 /archive 与 /archive/rss.xml（默认 true，详情与 /essay 仍可见，可省略）
-slug: optional      # 自定义 URL slug（默认用文件名）
+slug: optional      # 自定义 URL slug（默认使用拍平后的内容路径，例如 2024/my-post → 2024-my-post）
 badge: optional     # 列表徽标；未填时列表显示“随笔”
 ```
 
@@ -284,9 +311,12 @@ HTML 示例：
 子集字符集由仓库文本 + `tools/charset-base.txt`（3500 常用字）共同生成，用来降低缺字概率。
 
 重新生成字体子集：
-1. 准备源字体放入 `tools/fonts-src/`
-2. 运行 `npm run font:build`
-3. 若出现缺字，将缺失字符补到 `tools/charset-common.txt` 后重跑
+1. 安装 Python 3，并执行 `python -m pip install fonttools brotli zopfli`
+2. 确认 `pyftsubset --help` 可用；若不可用，请把 Python Scripts 目录加入 `PATH`
+3. 把源字体放到 `tools/fonts-src/`
+4. 运行 `npm run font:build`
+5. 缺字时，把字符补到 `tools/charset-base.txt` 后重新执行 `npm run font:build`
+6. `tools/charset-common.txt` 会在 `npm run font:charset` 时重生成；除非你只想重跑 `npm run font:subset`，否则不要手改它
 
 <details>
   <summary>字体文件清单（子集 + 源字体）</summary>

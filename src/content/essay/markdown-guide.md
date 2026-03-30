@@ -1,9 +1,9 @@
 ---
-title: Markdown 排版完全指南
+title: Markdown 排版指南
 description: 展示所有 Markdown 格式效果，包括标题、列表、代码、表格、引用等
 date: 2026-01-15
 badge: 示例
-tags: ["指南", "Markdown", "排版"]
+tags: [ "Markdown", "排版"]
 draft: true
 ---
 
@@ -44,11 +44,11 @@ Pullquote（使用 `blockquote.pullquote` 变体）：
 
 ## 提示块（Callout）
 
-推荐使用语法糖（note / tip / info / warning）：
+支持 `note / tip / info / warning` 四种语法糖。下面先给一个最小写法；如需更精细控制，也可以直接写 HTML。
 
 ~~~md
-:::note[Note]
-这是补充说明或旁白内容，适合放一些背景或注释。
+:::note[标题]
+这是正文。
 :::
 ~~~
 
@@ -56,8 +56,8 @@ Pullquote（使用 `blockquote.pullquote` 变体）：
 
 ~~~html
 <div class="callout note">
-  <p class="callout-title" data-icon="none">Note</p>
-  <p>这是补充说明或旁白内容，适合放一些背景或注释。</p>
+  <p class="callout-title" data-icon="none">标题</p>
+  <p>这是正文。</p>
 </div>
 ~~~
 
@@ -66,57 +66,43 @@ Pullquote（使用 `blockquote.pullquote` 变体）：
 - 隐藏图标用 `data-icon="none"`，写在 `.callout-title` 上。
 - 自定义图标可用 `data-icon="✨"`（可选）。
 
-### 语法糖测试集（Callout）
+### 语法糖变体示例（Callout）
 
-以下仅展示语法（不含样式），用于语法糖测试用例：
+这一组示例主要展示不同类型、标题形式与内容结构在前端的实际样式。
 
-### 语法糖渲染示例
-
-:::tip[一个小建议]
-这里是正文……
-:::
-
-~~~text
 :::note
-只有正文，无标题。
+这是无标题示例。
 :::
-~~~
 
-~~~text
-:::note[标题]
-这是有标题的 note。
+:::note[带标题]
+这是普通段落正文。
 :::
-~~~
 
-~~~text
-:::tip[清单]
-- 条目一
-- 条目二
+:::tip[Tip]
+可以包含行内代码 `npm run dev`、强调文本和 [链接](https://astro.build)。
 :::
-~~~
 
-~~~text
-:::info[代码]
+:::info[Info]
 ```ts
 const hello = 'world';
 ```
 :::
-~~~
+
+:::warning[Warning]
+> 也可以包含引用块。
+>
+> 也可以换成多段内容。
+:::
+
+基础语法如下：
 
 ~~~text
-:::warning[注意]
-> 这是一段引用提示。
-> 也可以包含一个 [链接](https://astro.build)。
+:::type[可选标题]
+正文内容
 :::
 ~~~
 
-~~~text
-:::foo[错误类型]
-非法类型示例。
-:::
-~~~
-
-非法类型建议处理：降级为 note（保留标题与内容）。
+仅支持 `note / tip / info / warning`；不支持的类型（如 `:::foo[...]`）当前会降级为 `note`。
 
 ## 列表
 
@@ -208,7 +194,7 @@ npm run build
 ## 表格
 
 | 功能 | 状态 | 说明 |
-|------|:----:|------|
+|:----:|:----:|:----:|
 | 响应式布局 | ✅ | 完美适配移动端 |
 | 暗色模式 | 🚧 | 开发中 |
 | RSS 订阅 | ✅ | 支持多 Feed |

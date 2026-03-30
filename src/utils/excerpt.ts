@@ -1,5 +1,10 @@
 const MORE_REGEX = /<!--\s*more\s*-->/i;
 
+export type DerivedMarkdownText = {
+  plainText: string;
+  excerptText: string;
+};
+
 export function splitMore(md: string): string {
   if (!md) return '';
   const match = md.match(MORE_REGEX);
@@ -29,25 +34,25 @@ export function cleanMarkdownToText(md: string): string {
   return text;
 }
 
-export function excerptFromMarkdown(md: string, maxChars = 120): string {
-  const sliced = splitMore(md);
-  const cleaned = cleanMarkdownToText(sliced);
-  if (!cleaned) return '';
-  if (cleaned.length <= maxChars) return cleaned;
-  return `${cleaned.slice(0, Math.max(0, maxChars))}…`;
+export function truncateText(text: string, maxChars = 120): string {
+  if (!text) return '';
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, Math.max(0, maxChars))}…`;
 }
 
-export function getListExcerpt(entry: { body?: string }): string {
-  return excerptFromMarkdown(entry?.body ?? '', 120);
-}
+export function deriveMarkdownText(md: string): DerivedMarkdownText {
+  if (!md) {
+    return {
+      plainText: '',
+      excerptText: ''
+    };
+  }
 
-export function getBitsExcerpt(entry: { body?: string }): string {
-  return excerptFromMarkdown(entry?.body ?? '', 180);
-}
+  const excerptMarkdown = splitMore(md);
+  const plainText = cleanMarkdownToText(md);
 
-export function getMetaDescription(entry: { body?: string; data?: { description?: string } }): string {
-  const raw = entry?.data?.description ?? '';
-  const trimmed = typeof raw === 'string' ? raw.trim() : '';
-  if (trimmed) return trimmed;
-  return excerptFromMarkdown(entry?.body ?? '', 90);
+  return {
+    plainText,
+    excerptText: excerptMarkdown === md ? plainText : cleanMarkdownToText(excerptMarkdown)
+  };
 }

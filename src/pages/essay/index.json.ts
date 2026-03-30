@@ -1,16 +1,12 @@
 import type { APIRoute } from 'astro';
-import { getEssaySlug, getVisibleEssays } from '../../lib/content';
-import { cleanMarkdownToText } from '../../utils/excerpt';
+import { getEssayDerivedText, getEssaySlug, getVisibleEssays } from '../../lib/content';
 
 export const prerender = true;
-
-const MAX_INDEX_TEXT = 600;
 
 export const GET: APIRoute = async () => {
   const visibleEssays = await getVisibleEssays();
   const index = visibleEssays.map((entry) => {
-    const plain = cleanMarkdownToText(entry.body ?? '');
-    const text = plain.length > MAX_INDEX_TEXT ? plain.slice(0, MAX_INDEX_TEXT) : plain;
+    const { text } = getEssayDerivedText(entry);
     return {
       slug: getEssaySlug(entry),
       title: entry.data.title ?? '',
@@ -20,11 +16,14 @@ export const GET: APIRoute = async () => {
       date: entry.data.date ? entry.data.date.toISOString() : null
     };
   });
+  const cacheControl = import.meta.env.DEV
+    ? 'no-store'
+    : 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400';
 
   return new Response(JSON.stringify(index), {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
+      'Cache-Control': cacheControl
     }
   });
 };

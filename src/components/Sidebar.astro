@@ -2,9 +2,15 @@
 import Icon from './Icon.astro';
 import { ADMIN_NAV_ORNAMENT_DEFAULT } from '../lib/admin-console/shared';
 import { createWithBase } from '../utils/format';
-import { getSidebarHref, getThemeSettings } from '../lib/theme-settings';
+import { getSidebarHref, getThemeSettings, type SidebarNavId } from '../lib/theme-settings';
 
-const { siteTitle = 'Whono' } = Astro.props;
+const {
+  siteTitle = 'Whono',
+  activeNavId
+} = Astro.props as {
+  siteTitle?: string;
+  activeNavId?: SidebarNavId;
+};
 
 const pathname = Astro.url.pathname;
 const base = import.meta.env.BASE_URL ?? '/';
@@ -16,6 +22,7 @@ const nav = settings.shell.nav
   .filter((item) => item.visible)
   .sort((a, b) => a.order - b.order)
   .map((item) => ({
+    id: item.id,
     label: item.label,
     ornament: item.ornament,
     href: withBase(getSidebarHref(item.id))
@@ -36,7 +43,9 @@ const showReaderToggle = settings.ui.readingMode.showEntry;
 
   <ul class="nav">
     {nav.map((item) => {
-      const isActive = pathname === item.href || (item.href !== homeHref && pathname.startsWith(item.href));
+      const isActive = activeNavId
+        ? item.id === activeNavId
+        : pathname === item.href || (item.href !== homeHref && pathname.startsWith(item.href));
       return (
         <li>
           <a href={item.href} aria-current={isActive ? 'page' : undefined}>
